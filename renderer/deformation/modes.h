@@ -1,0 +1,29 @@
+#ifndef MODES_H
+#define MODES_H
+
+#include "stdlib.h"
+
+enum DEFORM_MODE{
+	MODE_ELLIPSE,
+	MODE_LINE,
+	MODE_HULL,
+	MODE_AUTO,
+};
+
+enum SOURCE_MODE{
+	MODE_BUNDLE,
+	MODE_LENS,
+	MODE_LOCATION,
+};
+
+enum DIRECTION
+{
+	DIR_LEFT,
+	DIR_RIGHT,
+	DIR_UP,
+	DIR_DOWN,
+	DIR_IN,
+	DIR_OUT,
+};
+
+#endif

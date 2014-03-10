@@ -6,6 +6,17 @@
 // VECTOR3 class definitions
 //////////////////////////////////////////////////////////////////////////
 
+//added by Tong
+void VECTOR2::Normalize()
+{
+	float norm = (float)sqrt(vec[0]*vec[0] + vec[1]*vec[1]);
+	if(norm != 0.0)
+	{
+		for (int i = 0; i < Dimension(); i++)
+			vec[i] = vec[i]/norm;
+	}
+}
+
 //added by lijie
 MATRIX3 MATRIX3::transpose()
 {

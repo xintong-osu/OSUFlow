@@ -47,6 +47,8 @@ public :
 	{ vec[0] = vec[1] = 0.0; };
 	void Set(const float x0, const float x1)
 	{ vec[0] = x0; vec[1] = x1; };
+	float GetMag() {return (float)(sqrt(vec[0]*vec[0] + vec[1]*vec[1]));}	// get magnitude
+	void Normalize();	
 };
 
 // Line class
@@ -145,6 +147,7 @@ public :
 	void Zero() {vec[0] = vec[1] = vec[2] = vec[3] = 0.0;}		// make zero vector
 
 	void Normalize();											// normalize vector
+	float GetMag() {return (float)(sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2] + vec[3]*vec[3]));}	// get magnitude
 };
 
 //////////////////////////////////////////////////////////////////////////
