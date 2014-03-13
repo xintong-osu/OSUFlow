@@ -322,25 +322,25 @@ inline ellipse GenEllipse(vector<Point_2> pointSet)
 	return ellipse(ellipse_center_x, ellipse_center_y, ellipse_size_a, ellipse_size_b, ellipse_angle);
 }
 
-void InteractiveStreamline3D::setMatrix(GLdouble *ModelViewMatrix, GLdouble *ProjectionMatrix, int *Viewport)
+void StreamDeform::setMatrix(GLdouble *ModelViewMatrix, GLdouble *ProjectionMatrix, int *Viewport)
 {
 	_ModelViewMatrix = ModelViewMatrix;
 	_ProjectionMatrix = ProjectionMatrix;
 	_Viewport = Viewport;
 }
 
-void InteractiveStreamline3D::GenBundleColor()
+void StreamDeform::GenBundleColor()
 {
 	for(int i = 0; i < _streamBundles.size(); i++)
 		_bundleColor.push_back(*(new VECTOR3(getR(i), getG(i), getB(i))));
 }
 
-VECTOR3 InteractiveStreamline3D::GetBundleColor(int i)
+VECTOR3 StreamDeform::GetBundleColor(int i)
 {
 	return _bundleColor[i];
 }
 
-InteractiveStreamline3D::InteractiveStreamline3D(void)
+StreamDeform::StreamDeform(void)
 {
 	_deformMode = DEFORM_MODE::MODE_ELLIPSE;
 	_sourceMode = SOURCE_MODE::MODE_BUNDLE;
@@ -358,16 +358,16 @@ InteractiveStreamline3D::InteractiveStreamline3D(void)
 	SetPickedLineSet(&_pickedLineSet);
 }
 
-vector<ellipse> InteractiveStreamline3D::GetEllipse()
+vector<ellipse> StreamDeform::GetEllipse()
 {
 	return _focusEllipseSet;
 }
 
-InteractiveStreamline3D::~InteractiveStreamline3D(void)
+StreamDeform::~StreamDeform(void)
 {
 }
 
-void InteractiveStreamline3D::SetDeformMode(DEFORM_MODE mode)
+void StreamDeform::SetDeformMode(DEFORM_MODE mode)
 {
 	_deformMode = mode;
 	//RestoreStreamConnectivity();
@@ -376,7 +376,7 @@ void InteractiveStreamline3D::SetDeformMode(DEFORM_MODE mode)
 	RedoDeformation();
 }
 
-void InteractiveStreamline3D::SetSourceMode(SOURCE_MODE mode)
+void StreamDeform::SetSourceMode(SOURCE_MODE mode)
 {
 	_sourceMode = mode;
 	if(_sourceMode == SOURCE_MODE::MODE_LENS)
@@ -389,7 +389,7 @@ void InteractiveStreamline3D::SetSourceMode(SOURCE_MODE mode)
 	RedoDeformation();
 }
 
-void InteractiveStreamline3D::RedoDeformation()
+void StreamDeform::RedoDeformation()
 {
 	//RestoreStreamConnectivity();
 	//resetOrigPos();
@@ -397,22 +397,22 @@ void InteractiveStreamline3D::RedoDeformation()
 	ProcessAllStream();
 }
 
-SOURCE_MODE InteractiveStreamline3D::GetSourceMode()
+SOURCE_MODE StreamDeform::GetSourceMode()
 {
 	return _sourceMode;
 }
 
-DEFORM_MODE InteractiveStreamline3D::GetDeformMode()
+DEFORM_MODE StreamDeform::GetDeformMode()
 {
 	return _deformMode;
 }
 
-vector<vector<int>>* InteractiveStreamline3D::getBundle()
+vector<vector<int>>* StreamDeform::getBundle()
 {
 	return &_streamBundles;
 }
 
-void InteractiveStreamline3D::bundling(int n)
+void StreamDeform::bundling(int n)
 {
 	//_bundle.HierarchicalClustering();
 	//_bundle._SetData(_primitiveBases, _primitiveLengths);
@@ -429,7 +429,7 @@ void InteractiveStreamline3D::bundling(int n)
 }
 
 //called by the rendering program
-void InteractiveStreamline3D::Init()
+void StreamDeform::Init()
 {
 	SetVertexCoords((float*)(GetPrimitiveBases()->at(0)), _vertexCount );
 	SetPrimitive(_primitiveLengths, _primitiveOffsets);
@@ -452,18 +452,18 @@ void InteractiveStreamline3D::Init()
 	}
 }
 
-void InteractiveStreamline3D::SetPara(float p)
+void StreamDeform::SetPara(float p)
 {
 	_para = p;
 	SetParaCUDA(p);
 }
 
-int InteractiveStreamline3D::GetVertexLineIndex(int i)
+int StreamDeform::GetVertexLineIndex(int i)
 {
 	return _vertexLineIndex[i];
 }
 
-bool InteractiveStreamline3D::GetLinePicked(int il)
+bool StreamDeform::GetLinePicked(int il)
 {
 	bool picked = false;
 	for(int j = 0; j < _pickedLineSet.size(); j++)
@@ -474,7 +474,7 @@ bool InteractiveStreamline3D::GetLinePicked(int il)
 	return picked;
 }
 
-bool InteractiveStreamline3D::GetLinePickedOrig(int il)
+bool StreamDeform::GetLinePickedOrig(int il)
 {
 	bool picked = false;
 	for(int j = 0; j < _pickedLineSetOrig.size(); j++)
@@ -485,24 +485,24 @@ bool InteractiveStreamline3D::GetLinePickedOrig(int il)
 	return picked;
 }
 
-void InteractiveStreamline3D::SetCudaResourceClip(cudaGraphicsResource *_cuda_vbo_clip_resource)
+void StreamDeform::SetCudaResourceClip(cudaGraphicsResource *_cuda_vbo_clip_resource)
 {
 	cuda_vbo_clip_resource = _cuda_vbo_clip_resource;
 }
 
-void InteractiveStreamline3D::SetCudaResourceTangent(cudaGraphicsResource *_cuda_vbo_tangent_resource)
+void StreamDeform::SetCudaResourceTangent(cudaGraphicsResource *_cuda_vbo_tangent_resource)
 {
 	cuda_vbo_tangent_resource = _cuda_vbo_tangent_resource;
 }
 
-void InteractiveStreamline3D::SetWinSize(int _winWidth, int _winHeight)
+void StreamDeform::SetWinSize(int _winWidth, int _winHeight)
 {
 	winWidth = _winWidth;
 	winHeight = _winHeight;
 }
 
 template<typename T>
-vector<Point_2> InteractiveStreamline3D::Object2Screen(vector<T> pointSet)
+vector<Point_2> StreamDeform::Object2Screen(vector<T> pointSet)
 {
 	vector<Point_2> pointSetProj;
 	for(int i = 0; i < pointSet.size(); i++)
@@ -517,7 +517,7 @@ vector<Point_2> InteractiveStreamline3D::Object2Screen(vector<T> pointSet)
 }
 
 /*******lens***********/
-bool InteractiveStreamline3D::InsideFirstEllipse(float x, float y)
+bool StreamDeform::InsideFirstEllipse(float x, float y)
 {
 	VECTOR2 dir2Center = VECTOR2(x, y) - _lens_center_screen;	//current distance to the center
 	float dist2Center = (dir2Center).GetMag();	//current distance to the center 
@@ -532,7 +532,7 @@ bool InteractiveStreamline3D::InsideFirstEllipse(float x, float y)
 	return dist2Center < 0.8 * radius;
 }
 
-bool InteractiveStreamline3D::OnEllipseEndPoint(float x, float y)
+bool StreamDeform::OnEllipseEndPoint(float x, float y)
 {
 	float angle = atan2(y - _lens_center_screen[1], x - _lens_center_screen[0]) + M_PI;
 	vector<VECTOR2> endPoints;
@@ -558,7 +558,7 @@ bool InteractiveStreamline3D::OnEllipseEndPoint(float x, float y)
 	return _onEllipseEndPt;
 }
 
-void InteractiveStreamline3D::ChangeLensDepth(int m)
+void StreamDeform::ChangeLensDepth(int m)
 {
 	float step = 0.0002;
 
@@ -572,7 +572,7 @@ void InteractiveStreamline3D::ChangeLensDepth(int m)
 	ProcessAllStream();
 }
 
-void InteractiveStreamline3D::MoveLensCenterOnScreen(float dx, float dy)
+void StreamDeform::MoveLensCenterOnScreen(float dx, float dy)
 {
 	VECTOR2 center_clip_2 = Screen2Clip(VECTOR2(_lens_center_screen[0] + dx, _lens_center_screen[1] + dy), winWidth, winHeight);
 	VECTOR4 lens_center_clip = VECTOR4(center_clip_2[0], center_clip_2[1], _lensDepth_clip, 1);
@@ -580,7 +580,7 @@ void InteractiveStreamline3D::MoveLensCenterOnScreen(float dx, float dy)
 	LensTouchLine();
 }
 
-void InteractiveStreamline3D::MoveLensEndPtOnScreen(float x, float y)
+void StreamDeform::MoveLensEndPtOnScreen(float x, float y)
 {
 	VECTOR2 dirFromCenter = VECTOR2(x, y) - _lens_center_screen;
 	float angle = atan2(dirFromCenter[1], dirFromCenter[0]);
@@ -613,7 +613,7 @@ void InteractiveStreamline3D::MoveLensEndPtOnScreen(float x, float y)
 	LensTouchLine();
 }
 
-void InteractiveStreamline3D::ChangeLensOnScreen(float x, float y)
+void StreamDeform::ChangeLensOnScreen(float x, float y)
 {
 	VECTOR4 lens_center_clip = Object2Clip(_lens_center, _ModelViewMatrix, _ProjectionMatrix);
 	lens_center_clip[0] += x;
@@ -623,24 +623,24 @@ void InteractiveStreamline3D::ChangeLensOnScreen(float x, float y)
 	LensTouchLine();
 }
 
-void InteractiveStreamline3D::ChangeLensAngle(int m)
+void StreamDeform::ChangeLensAngle(int m)
 {
 	_lensEllipseAngle += (m * 0.2);
 	LensTouchLine();
 }
 
-void InteractiveStreamline3D::ChangeLensRatio(int m)
+void StreamDeform::ChangeLensRatio(int m)
 {
 	_lensEllipseRatio += (m * 0.1);
 	LensTouchLine();
 }
 
-float* InteractiveStreamline3D::GetLensCenter()
+float* StreamDeform::GetLensCenter()
 {
 	return &_lens_center[0];
 }
 
-void InteractiveStreamline3D::GenHullEllipse()
+void StreamDeform::GenHullEllipse()
 {
 	if(0 == _picked3DHulls.size() )
 		return;
@@ -681,7 +681,7 @@ void InteractiveStreamline3D::GenHullEllipse()
 }
 
 
-float InteractiveStreamline3D::Object2ScreenLength(float length_object, VECTOR4 center_object)
+float StreamDeform::Object2ScreenLength(float length_object, VECTOR4 center_object)
 {
 	//VECTOR4 center_object = VECTOR4(0,0,depth_object,0); 
 	VECTOR4 center_camera = Object2Camera(center_object, _ModelViewMatrix);
@@ -696,7 +696,7 @@ float InteractiveStreamline3D::Object2ScreenLength(float length_object, VECTOR4 
 	return length_screen;
 }
 
-float InteractiveStreamline3D::Screen2ObjectLength(float length_screen, float depth_screen)
+float StreamDeform::Screen2ObjectLength(float length_screen, float depth_screen)
 {
 	VECTOR4 lens_center_camera = Object2Camera(_lens_center, _ModelViewMatrix);
 	VECTOR4 lens_center_clip = Camera2Clip(lens_center_camera, _ProjectionMatrix);
@@ -717,7 +717,7 @@ float InteractiveStreamline3D::Screen2ObjectLength(float length_screen, float de
 	return length_camera;
 }
 
-void InteractiveStreamline3D::RunCuda()
+void StreamDeform::RunCuda()
 {
 #if TEST_PERFORMANCE
 	clock_t t0 = clock();
@@ -795,7 +795,7 @@ void InteractiveStreamline3D::RunCuda()
 #endif
 }
 
-void InteractiveStreamline3D::LineLensProcess()
+void StreamDeform::LineLensProcess()
 {
 	_isCutPoint = ComputeCutPoints();
 	ComputeNewPrimitives();
@@ -803,7 +803,7 @@ void InteractiveStreamline3D::LineLensProcess()
 	UpdateVertexLineIndexForCut();
 }
 
-void InteractiveStreamline3D::ProcessCut()
+void StreamDeform::ProcessCut()
 {
 	if(_picked3DHulls.size() > 0)
 	{
@@ -814,7 +814,7 @@ void InteractiveStreamline3D::ProcessCut()
 	}
 }
 
-void InteractiveStreamline3D::resetOrigPos()
+void StreamDeform::resetOrigPos()
 {
 	resetPos();
 
@@ -823,7 +823,7 @@ void InteractiveStreamline3D::resetOrigPos()
 
 }
 
-void InteractiveStreamline3D::ProcessAllStream()
+void StreamDeform::ProcessAllStream()
 {
 	if(SOURCE_MODE::MODE_LENS == _sourceMode)
 	{
@@ -839,7 +839,7 @@ void InteractiveStreamline3D::ProcessAllStream()
 	}
 }
 
-std::vector<hull_type>* InteractiveStreamline3D::GetHull()
+std::vector<hull_type>* StreamDeform::GetHull()
 {
 	return &_focusHullSet;
 }
@@ -847,7 +847,7 @@ std::vector<hull_type>* InteractiveStreamline3D::GetHull()
 //the index of target streamlines is negative
 //the index of other streamlines is positive
 //call it whenever the target changes
-void InteractiveStreamline3D::UpdateVertexLineIndex()
+void StreamDeform::UpdateVertexLineIndex()
 {
 	int iv = 0;
 	vector<int> lengths = _primitiveLengths;// GetPrimitiveLengthsRender();
@@ -872,11 +872,14 @@ void InteractiveStreamline3D::UpdateVertexLineIndex()
 				_vertexLineIndex[iv++] = i;
 		}
 	}
+	//cout<<"**set vertex line index..."<<endl;
+	//for(int i = 0; i < _vertexCount; i++)
+	//	cout<<_vertexLineIndex[i]<<"\t";
 	SetLineIndexCUDA(_vertexLineIndex);
 //	SetPickedLineCUDA(&_pickedLineSet[0], _pickedLineSet.size());
 }
 
-void InteractiveStreamline3D::UpdateVertexLineIndexForCut()
+void StreamDeform::UpdateVertexLineIndexForCut()
 {
 	int iv = 0;
 	vector<int> lengths = _primitiveLengths;// GetPrimitiveLengthsRender();
@@ -893,7 +896,7 @@ void InteractiveStreamline3D::UpdateVertexLineIndexForCut()
 //	SetPickedLineCUDA(&_pickedLineSet[0], _pickedLineSet.size());
 }
 
-void InteractiveStreamline3D::AddBundle(int ib)
+void StreamDeform::AddBundle(int ib)
 {
 	//have to reset original position, because the newly added bundle is deformed
 	//however, the original position is needed for deciding groups
@@ -998,7 +1001,7 @@ inline void MergeBox2ToBox1(box2 &b1, box2 &b2)
 	}
 }
 
-void InteractiveStreamline3D::ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices, vector<vector<int>> &streamGroups)
+void StreamDeform::ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices, vector<vector<int>> &streamGroups)
 {
     size_t num_bytes; 
     //checkCudaErrors(cudaGraphicsMapResources(1, &cuda_vbo_clip_resource, 0));
@@ -1071,12 +1074,12 @@ void InteractiveStreamline3D::ClusterStreamByBoundingBoxOnScreen(vector<int> str
 		streamGroups.push_back(it->lineIdx);
 }
 
-vector<int> InteractiveStreamline3D::GetPrimitiveLengths()
+vector<int> StreamDeform::GetPrimitiveLengths()
 {
 	return _primitiveLengths;
 }
 
-vector<int> InteractiveStreamline3D::GetPrimitiveOffsets()
+vector<int> StreamDeform::GetPrimitiveOffsets()
 {
 	return _primitiveOffsets;
 }
@@ -1101,7 +1104,7 @@ inline float Distance(Point_3 p, vector<VECTOR4> curve)
 	return minDistance;
 }
 
-vector<vector<VECTOR4>> InteractiveStreamline3D::Groups2Hull(vector<vector<int>> streamGroups)
+vector<vector<VECTOR4>> StreamDeform::Groups2Hull(vector<vector<int>> streamGroups)
 {
 	vector<vector<VECTOR4>> hulls;
 	vector<vector<Point_3>> groupSamplePoints;
@@ -1140,13 +1143,13 @@ vector<vector<VECTOR4>> InteractiveStreamline3D::Groups2Hull(vector<vector<int>>
 	return hulls;
 }
 
-void InteractiveStreamline3D::GetPickCube(VECTOR3 &min, VECTOR3 &max)
+void StreamDeform::GetPickCube(VECTOR3 &min, VECTOR3 &max)
 {
 	min = _pickBlockStart;
 	max = _pickBlockStart + _pickBlockSize;
 }
 
-void InteractiveStreamline3D::PickBundle(int ib)
+void StreamDeform::PickBundle(int ib)
 {
 	_sourceMode = SOURCE_MODE::MODE_BUNDLE;
 
@@ -1191,7 +1194,7 @@ void InteractiveStreamline3D::PickBundle(int ib)
 	}
 }
 
-void InteractiveStreamline3D::ComputeNewPrimitives()
+void StreamDeform::ComputeNewPrimitives()
 {
 	//cout<<"_primitiveLengths.size()1:"<<_primitiveLengths.size()<<endl;
 	_primitiveLengths.clear();
@@ -1238,7 +1241,7 @@ void InteractiveStreamline3D::ComputeNewPrimitives()
 	//_pickedLineSet = _pickedLineSetOrig;
 }
 
-void InteractiveStreamline3D::BuildLineGroups()
+void StreamDeform::BuildLineGroups()
 {
 	vector<vector<int>> streamGroups;
 	ClusterStreamByBoundingBoxOnScreen(_pickedLineSet, streamGroups);
@@ -1246,13 +1249,13 @@ void InteractiveStreamline3D::BuildLineGroups()
 	
 }
 
-void InteractiveStreamline3D::RestoreAllStream()
+void StreamDeform::RestoreAllStream()
 {
 	resetOrigPos();
 	RestoreStreamConnectivity();
 }
 
-void InteractiveStreamline3D::RestoreStreamConnectivity()
+void StreamDeform::RestoreStreamConnectivity()
 {
 	_primitiveLengths = _primitiveLengthsOrig;
 	_primitiveOffsets = _primitiveOffsetsOrig;
@@ -1260,7 +1263,7 @@ void InteractiveStreamline3D::RestoreStreamConnectivity()
 	UpdateVertexLineIndex();
 }
 
-void InteractiveStreamline3D::loadBundle(int *clusterid , int nClusters)
+void StreamDeform::loadBundle(int *clusterid , int nClusters)
 {
 	//	_streamBundleIndex = new int[_primitiveLengths.size()];
 	//	for(int i = 0; i < _primitiveLengths.size(); i++)
@@ -1274,7 +1277,7 @@ void InteractiveStreamline3D::loadBundle(int *clusterid , int nClusters)
 	//	free(_bundle);
 }
 
-void InteractiveStreamline3D::setData(float *pfCoords, int size, vector<int> pviGlPrimitiveBases, vector<int> pviGlPrimitiveLengths)
+void StreamDeform::setData(float *pfCoords, int size, vector<int> pviGlPrimitiveBases, vector<int> pviGlPrimitiveLengths)
 {
 	for(int i = 0; i < pviGlPrimitiveBases.size(); i++)
 	{
@@ -1302,7 +1305,7 @@ void InteractiveStreamline3D::setData(float *pfCoords, int size, vector<int> pvi
 	//	_LoadBundleFile(FILENAME_BUNDLE);
 }
 
-void InteractiveStreamline3D::SetDomain(float pfMin[4], float pfMax[4])
+void StreamDeform::SetDomain(float pfMin[4], float pfMax[4])
 {
 	_pfMin = pfMin;
 	_pfMax = pfMax;
@@ -1325,7 +1328,7 @@ void InteractiveStreamline3D::SetDomain(float pfMin[4], float pfMax[4])
 	SetLens(&_lensDepth_clip);
 }
 
-void InteractiveStreamline3D::_LoadBundleFile(char *filename)
+void StreamDeform::_LoadBundleFile(char *filename)
 {
 	ifstream ifs;
 	ifs.open(filename);
@@ -1357,18 +1360,18 @@ void InteractiveStreamline3D::_LoadBundleFile(char *filename)
 	}
 }
 
-vector<VECTOR4*>* InteractiveStreamline3D::GetPrimitiveBases()
+vector<VECTOR4*>* StreamDeform::GetPrimitiveBases()
 {
 	return &_primitiveBases;
 }
 
-vector<VECTOR4>* InteractiveStreamline3D::GetPrimitiveColors()
+vector<VECTOR4>* StreamDeform::GetPrimitiveColors()
 {
 	return &_primitiveColors;
 }
 
 
-void InteractiveStreamline3D::ChangeLensRadius(int m)
+void StreamDeform::ChangeLensRadius(int m)
 {
 	if(m > 0)
 		_lens_radius *= 1.25;
@@ -1376,7 +1379,7 @@ void InteractiveStreamline3D::ChangeLensRadius(int m)
 		_lens_radius *= 0.8;
 }
 
-void InteractiveStreamline3D::PickStreamByBlock()
+void StreamDeform::PickStreamByBlock()
 {
 	_pickedLineSet = PickStreamByBlockCUDA(&_pickBlockStart[0], &(_pickBlockStart + _pickBlockSize)[0]);
 	vector<vector<int>> streamGroups;
@@ -1387,7 +1390,7 @@ void InteractiveStreamline3D::PickStreamByBlock()
 	UpdateVertexLineIndex();
 }
 
-void InteractiveStreamline3D::MovePickBlock(DIRECTION dir)
+void StreamDeform::MovePickBlock(DIRECTION dir)
 {
 	VECTOR3 minLen;
 	VECTOR3 maxLen;
@@ -1419,16 +1422,16 @@ void InteractiveStreamline3D::MovePickBlock(DIRECTION dir)
 	PickStreamByBlock();
 }
 
-int* InteractiveStreamline3D::GetStreamBundleIndex()
+int* StreamDeform::GetStreamBundleIndex()
 {
 	return _streamBundleIndex;
 }
 //
-//void InteractiveStreamline3D::ClearEllipse()
+//void StreamDeform::ClearEllipse()
 //{
 //
 //}
-//void InteractiveStreamline3D::SetCutLine(VECTOR2 startPoint, VECTOR2 endPoint)
+//void StreamDeform::SetCutLine(VECTOR2 startPoint, VECTOR2 endPoint)
 //{
 //	//_cutLine[0] = startPoint;
 //	//_cutLine[1] = endPoint;

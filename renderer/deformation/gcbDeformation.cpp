@@ -28,7 +28,7 @@ float fps;
 #include <list>
 #include <iterator>
 
-#include "gcb.h"
+//#include "gcb.h"
 #include "gcb2.h"
 #include "OSUFlow.h"
 #include "TimeLineRendererInOpenGLDeform.h"
@@ -592,7 +592,7 @@ main(int argc, char* argv[])
 	///////////////////////////////////////////////////////////////
 //	glutInitWindowPosition(0, 100);
 	glutInitWindowSize(800, 800);
-	deformWindowId = glutCreateWindow("GCB Line Rendering from Files");
+	deformWindowId = glutCreateWindow("Streamline Deformation Visualization");
 
 	// specify the callbacks you really need. Except gcbInit() and gcbDisplayFunc(), other callbacks are optional
 	gcbInit(init, quit);

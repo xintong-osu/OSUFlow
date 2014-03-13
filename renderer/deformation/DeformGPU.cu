@@ -570,7 +570,6 @@ void LensTouchLine()
 // Wrapper for the __global__ call that sets up the kernel call
 void launch_kernel()//, unsigned int mesh_width, unsigned int mesh_height, float time)
 {
-	//cout<<"enter launch_kernel..."<<endl;
 #if TEST_PERFORMANCE
 	clock_t t0 = clock();
 #endif
@@ -614,6 +613,9 @@ void launch_kernel()//, unsigned int mesh_width, unsigned int mesh_height, float
 	//}
 
 	check_cuda_errors(__FILE__, __LINE__);
+	//cout<<"execute kernel_convex..."<<endl;
+	/*cout<<"d_vec_ellipseSet.data()"<<d_vec_ellipseSet.size()<<endl;
+	cout<<"_nv:"<<_nv<<endl;*/
 	kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
 			thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
 			thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
@@ -1005,10 +1007,12 @@ void SetPrimitive(std::vector<int> data, std::vector<int> &offset)
 void SetLineIndexCUDA(int *data)
 {
 	_d_vec_lineIndex.assign(data, data + _nv);
+	//cout<<"_nv line index:" << _nv <<endl;
 }
 
 void AssignLineIndexFromDevice(int *data)
 {
+	//cout<<"AssignLineIndexFromDevice..."<<endl;
 	thrust::copy(_d_vec_lineIndex.begin(), _d_vec_lineIndex.end(), data);
 }
 

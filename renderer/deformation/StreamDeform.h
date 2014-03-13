@@ -193,7 +193,7 @@ struct point3
 	}
 };
 
-class InteractiveStreamline3D
+class StreamDeform
 {
 	vector<VECTOR4*> _primitiveBases;
 	vector<int> _primitiveLengths;
@@ -371,8 +371,8 @@ class InteractiveStreamline3D
 
 	//void CutStreamByCurve();
 public:
-	InteractiveStreamline3D(void);
-	~InteractiveStreamline3D(void);
+	StreamDeform(void);
+	~StreamDeform(void);
 
 	void setDraggingStartPoint(int x, int y);
 	void setData(float *pfCoords, int size, vector<int> pviGlPrimitiveBases, vector<int> pviGlPrimitiveLengths);

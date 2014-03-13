@@ -76,12 +76,12 @@ class CLineRendererInOpenGLDeform :
 	void DrawHull(std::vector<hull_type> hull);
 	void DrawPixel(VECTOR2 pixel);
 
-	InteractiveStreamline3D _deformLine;
+	StreamDeform _deformLine;
 	vector<vector<int>>* _bundle;
 	bool _newCutLine;
 	VECTOR2 _cutLine[2];
 
-	int _winWidth, _winHeight;
+	//int _winWidth, _winHeight;
 
 	//ADD-BY-TONG 02/12/2013-END
 protected:
@@ -206,7 +206,7 @@ public:
 
 	//ADD-BY-TONG 02/12/2013-BEGIN
 	void reshape();
-	InteractiveStreamline3D* getDeformLine();
+	StreamDeform* getDeformLine();
 
 	void _PassiveMotion(int x, int y);
 	void AllocGLBuffer();

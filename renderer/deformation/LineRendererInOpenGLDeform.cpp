@@ -655,6 +655,7 @@ CLineRendererInOpenGLDeform::_Draw()
 
 	if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LENS)
 	{
+		//cout<<"**1"<<endl;
 		switch(_deformLine.GetDeformMode())
 		{
 		case DEFORM_MODE::MODE_HULL:
@@ -663,6 +664,7 @@ CLineRendererInOpenGLDeform::_Draw()
 			DrawHull(*_deformLine.GetHull());
 			break;
 		case DEFORM_MODE::MODE_ELLIPSE:
+			//cout<<"**2"<<endl;
 			//draw ellipse
 			glColor4f(0.0f, 1.0f, 0.145f, 0.5f);
 			DrawEllipse();
@@ -675,6 +677,7 @@ CLineRendererInOpenGLDeform::_Draw()
 		vector<ellipse> ellipseSet = _deformLine.GetEllipse();
 		if(ellipseSet.size() > 0)
 		{
+			//cout<<"**3"<<endl;
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), 0), 4);
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 0.5), 4);
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI), 4);
@@ -745,10 +748,12 @@ void CLineRendererInOpenGLDeform::DrawEllipse()
 	//cout<<"num of ellipses:"<<ellipseSet.size()<<endl;
 	for(int i = 0; i < ellipseSet.size(); i++)
 	{
+		//cout<<"**4"<<endl;
 		float a = ellipseSet[i].a;
 		float b = ellipseSet[i].b;
 		float angle = ellipseSet[i].angle;
 		vector<VECTOR2> ellipseVertices;
+		//cout<<ellipseSet[i].x <<"," << ellipseSet[i].y <<":"<<a<<","<<b<<".."<<angle<<endl;
 		for(float t = 0; t < M_PI * 2; t += (M_PI * 0.01))
 		{
 			float x = ellipseSet[i].x + ellipseSet[i].a * cos(t) * cos(angle) - ellipseSet[i].b * sin(t) * sin(angle);
@@ -857,7 +862,7 @@ void CLineRendererInOpenGLDeform::DrawPixel(VECTOR2 pixel)
 void CLineRendererInOpenGLDeform::reshape()
 {
 	getMatrix();
-	_deformLine.SetWinSize(_winWidth, _winHeight);
+//	_deformLine.SetWinSize(_winWidth, _winHeight);
 }
 
 void CLineRendererInOpenGLDeform::SetWinSize(int w, int h)
@@ -887,7 +892,7 @@ void CLineRendererInOpenGLDeform::InitGL()
     g_loc_color = glGetUniformLocation(line_programID,"line_color");
 }
 
-InteractiveStreamline3D* CLineRendererInOpenGLDeform::getDeformLine()
+StreamDeform* CLineRendererInOpenGLDeform::getDeformLine()
 {
 	return &_deformLine;
 }
