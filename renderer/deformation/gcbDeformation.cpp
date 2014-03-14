@@ -312,14 +312,14 @@ _KeyboardFunc(unsigned char ubKey, int iX, int iY)
 		cLineRenderer.getDeformLine()->ChangeLensAngle(-1);
 		glutPostRedisplay();
 		break;
-	case '[':
-		cLineRenderer.getDeformLine()->ChangeLensRatio(1);
-		glutPostRedisplay();
-		break;
-	case ']':
-		cLineRenderer.getDeformLine()->ChangeLensRatio(-1);
-		glutPostRedisplay();
-		break;
+	//case '[':
+	//	cLineRenderer.getDeformLine()->ChangeLensRatio(1);
+	//	glutPostRedisplay();
+	//	break;
+	//case ']':
+	//	cLineRenderer.getDeformLine()->ChangeLensRatio(-1);
+	//	glutPostRedisplay();
+	//	break;
 	}
 }
 
@@ -345,6 +345,8 @@ void _MouseFunc(int button, int state, int x, int y)
 				_dragStartPosLine = VECTOR2(x, y);
 			else if(state==GLUT_UP)
 			{
+				if(cLineRenderer.GetNewCutLine())
+					cLineRenderer.CutLineFinish();
 				cLineRenderer.SetNewCutLine(false);
 			}
 		}
@@ -406,13 +408,10 @@ void _MotionFunc(int x, int y)
 	if(_dragLensEndPt)
 		cLineRenderer.getDeformLine()->MoveLensEndPtOnScreen(x, y);
 
-	if(cLineRenderer.GetNewCutLine())
-	{
-		cLineRenderer.SetCutLineCoords(_dragStartPosLine, VECTOR2(x, y));
-	}
-	
 	_dragStartPos = VECTOR2(x, y);
 
+	if(cLineRenderer.GetNewCutLine() == true)
+		cLineRenderer.SetCutLineCoords(_dragStartPosLine ,_dragStartPos);
 
 	//if(button==GLUT_RIGHT_BUTTON)
 	//cLineRenderer.dragTo(x, y);

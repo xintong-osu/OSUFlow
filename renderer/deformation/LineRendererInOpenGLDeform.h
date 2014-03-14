@@ -212,9 +212,10 @@ public:
 	void AllocGLBuffer();
 	void SetPara(float para);
 	void PickBundle(int i);
-	void AddBundle(int i);
+	void AddRemoveBundle(int i);
 	void SetNewCutLine(bool b);
 	bool GetNewCutLine();
+	void CutLineFinish();
 	void SetCutLineCoords(VECTOR2 startPoint, VECTOR2 endPoint);
 	void SetWinSize(int w, int h);
 	//ADD-BY-TONG 02/12/2013-END

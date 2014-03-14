@@ -41,7 +41,7 @@ void PickPanel::MouseButton(int button, int state, int x, int y)
 		  {
 			  //cout<<"1111111111111111111111111111"<<endl;
 			  //exit(0);
-			  _deformWin->AddBundle(_panelId);
+			  _deformWin->AddRemoveBundle(_panelId);
 			 // if(_panelId != _currentPanel)
 			  //{
 				 //cout<<"haha:"<<_panelId<<","<<_currentPanel<<endl;
@@ -93,7 +93,11 @@ void PickPanel::Draw()
 
 	 glTranslatef(_coordsMid[0], _coordsMid[1], _coordsMid[2]);
 	 glRotatef(xRot / 4.0, 1.0, 0.0, 0.0);
-     glRotatef(yRot / 4.0, 0.0, 1.0, 0.0);
+	 if(_longerRange == 2)
+	     glRotatef(yRot / 4.0 + 90, 0.0, 1.0, 0.0);
+	 else
+	     glRotatef(yRot / 4.0, 0.0, 1.0, 0.0);
+
      glRotatef(zRot / 4.0, 0.0, 0.0, 1.0);
 	 glTranslatef(-_coordsMid[0], -_coordsMid[1], -_coordsMid[2]);
 	 
@@ -248,14 +252,19 @@ glLightfv(GL_LIGHT0, GL_POSITION, light_position);
   //glRotatef(60, 1.0, 0.0, 0.0);
   //glRotatef(-20, 0.0, 0.0, 1.0);
 	VECTOR4 _coordRange = _coordsMax - _coordsMin;
-	float border = 0.7;
+	float border = 0.6;
 	VECTOR4 coordsBorder = _coordRange * border; 
-	int longerRange;
 	if(_coordRange[0] > _coordRange[1])
-		longerRange = 0;
+	{
+		if(_coordRange[0] > _coordRange[2])
+			_longerRange = 0;
+		else
+			_longerRange = 2;
+	} 
+	else if(_coordRange[1] > _coordRange[2])
+		_longerRange = 1;
 	else
-		longerRange = 1;
-
+		_longerRange = 2;
 
 	glMatrixMode(GL_PROJECTION);
 	//float orthoArr[6] = {	  _coordsMin[0] - coordsBorder[0],
@@ -272,8 +281,8 @@ glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 	  _coordsMin[1] - coordsBorder[1], _coordsMax[1] + coordsBorder[1], 
 	  -10000, 10000);*/
 	glOrtho(
-	  _coordsMid[0] - coordsBorder[longerRange], _coordsMid[0] + coordsBorder[longerRange],
-	  _coordsMid[1] - coordsBorder[longerRange], _coordsMid[1] + coordsBorder[longerRange],
+	  _coordsMid[0] - coordsBorder[_longerRange], _coordsMid[0] + coordsBorder[_longerRange],
+	  _coordsMid[1] - coordsBorder[_longerRange], _coordsMid[1] + coordsBorder[_longerRange],
 	  -10000, 10000);
 	/*
 	  _coordsMin[2] - coordsBorder[2],
@@ -287,11 +296,11 @@ glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 	//  throw "Error initializing GLEW";
 	//}
 	glMatrixMode(GL_MODELVIEW);
-  gluLookAt(0.0, 0.0, 1000.0,  /* eye is at (0,0,5) */
+	gluLookAt(0.0, 0.0, 1000.0,  /* eye is at (0,0,5) */
     0.0, 0.0, 0.0,      /* center is at (0,0,0) */
     0.0, 1.0, 0.);      /* up is in positive Y direction */
 	//cout<<"**3"<<endl;
-  glEnable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
 	glutPostRedisplay();
 

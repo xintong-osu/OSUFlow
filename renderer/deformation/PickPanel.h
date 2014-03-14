@@ -59,6 +59,7 @@ private:
 	bool _bButton1Down ;
 	CLineRendererInOpenGLDeform* _deformWin;
 	static int _currentPanel;
+	int _longerRange;
 
 public:
 	PickPanel(int x, int y, int width, int height, int panelId, int parentWinId);

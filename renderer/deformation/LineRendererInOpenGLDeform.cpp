@@ -503,8 +503,6 @@ inline void Draw3DCube(VECTOR3 minCube, VECTOR3 maxCube)
 	glVertex3f( minCube[0], minCube[1],  maxCube[2]);
 	glVertex3f( minCube[0], minCube[1], minCube[2] );
 	glEnd();
-
-
 }
 
 inline void TestPerf(char* text)
@@ -638,7 +636,7 @@ CLineRendererInOpenGLDeform::_Draw()
 	//draw lens center
 	glUseProgram(0);
 	glColor3f(1.0f, 0.0f, 0.0f);
-	Draw3DPoint(_deformLine.GetLensCenter());
+	//Draw3DPoint(_deformLine.GetLensCenter());
 
 	glPopMatrix();
 
@@ -682,6 +680,8 @@ CLineRendererInOpenGLDeform::_Draw()
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 0.5), 4);
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI), 4);
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 1.5), 4);
+			VECTOR2 lens_center_screen = VECTOR2(ellipseSet.front().x, ellipseSet.front().y);
+			DrawCircle(lens_center_screen, 2);
 		}
 	}
 
@@ -727,6 +727,8 @@ void CLineRendererInOpenGLDeform::DrawHull(std::vector<hull_type> hull)
 void CLineRendererInOpenGLDeform::SetNewCutLine(bool b)
 {
 	_newCutLine = b;
+	_cutLine[0] = VECTOR2(0, 0);
+	_cutLine[1] = VECTOR2(0, 0);
 }
 
 bool CLineRendererInOpenGLDeform::GetNewCutLine()
@@ -917,10 +919,10 @@ void CLineRendererInOpenGLDeform::PickBundle(int i)
 	_deformLine.PickBundle(i);
 }
 
-void CLineRendererInOpenGLDeform::AddBundle(int i)
+void CLineRendererInOpenGLDeform::AddRemoveBundle(int i)
 {
 	//_deformLine.resetOrigPos();
-	_deformLine.AddBundle(i);
+	_deformLine.AddRemoveBundle(i);
 }
 
 void 
@@ -1007,6 +1009,11 @@ void CLineRendererInOpenGLDeform::SetCutLineCoords(VECTOR2 startPoint, VECTOR2 e
 {
 	_cutLine[0] = startPoint;
 	_cutLine[1] = endPoint;
+}
+
+void CLineRendererInOpenGLDeform::CutLineFinish()
+{
+	_deformLine.SetLensAxis(_cutLine[0], _cutLine[1]);
 }
 
 //Used only when new data loaded

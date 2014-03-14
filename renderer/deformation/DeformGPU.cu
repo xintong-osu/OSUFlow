@@ -37,11 +37,11 @@ float *_h_projection;
 float *_invModelView;
 float *_invProjection;
 
-thrust::device_vector<ellipse> d_vec_ellipseSet;
 thrust::device_vector<hull_type> d_vec_hullSet;
 
 //convex hull
 thrust::device_vector<float2> _d_hull;
+std::vector<ellipse>* _h_vec_ellipseSet;
 
 //streamline
 int _nv;
@@ -548,9 +548,9 @@ void LensTouchLine()
 	////http://stackoverflow.com/questions/3717226/radius-of-projected-sphere
 		
 	//use the original position to solve the vibrating problem, because when deformed streamline changes depth
-	if(d_vec_ellipseSet.size() > 0)
+	if(_h_vec_ellipseSet->size() > 0)
 	{
-		ellipse ell = d_vec_ellipseSet.front();
+		ellipse ell = _h_vec_ellipseSet->front();
 		thrust::for_each(
 			thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin(), counting_zero)),
 			thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + d_vec_streamlineOffsets.size())),
@@ -603,7 +603,7 @@ void launch_kernel()//, unsigned int mesh_width, unsigned int mesh_height, float
 	std::cout<<"transform coordinates:"<< (float)compute_time * 0.001 << "sec" << std::endl;
 #endif	
 	//cout<<"...3"<<endl;
-	if(0 == d_vec_ellipseSet.size() )
+	if(0 == _h_vec_ellipseSet->size() )
 		return;
 
 	////*****lens mode
@@ -616,13 +616,15 @@ void launch_kernel()//, unsigned int mesh_width, unsigned int mesh_height, float
 	//cout<<"execute kernel_convex..."<<endl;
 	/*cout<<"d_vec_ellipseSet.data()"<<d_vec_ellipseSet.size()<<endl;
 	cout<<"_nv:"<<_nv<<endl;*/
+	thrust::device_vector<ellipse> d_vec_ellipseSet = *_h_vec_ellipseSet;
+
 	kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
 			thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
 			thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
 			_nv,
 			thrust::raw_pointer_cast(d_vec_ellipseSet.data()), 
 			thrust::raw_pointer_cast(d_vec_hullSet.data()), 
-			d_vec_ellipseSet.size(),
+			_h_vec_ellipseSet->size(),
 			*_deformMode,
 			_para);
 	check_cuda_errors(__FILE__, __LINE__);
@@ -908,13 +910,14 @@ std::vector<bool> ComputeCutPoints()
 	//		_d_vec_pos.end(), _d_ptr_posClip + _nv, d_vec_posScreen.end())),
 	//	functor_Screen2ObjectOnSamePlane());
 
+	thrust::device_vector<ellipse> d_vec_ellipseSet = *_h_vec_ellipseSet;
 	thrust::for_each(
 		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin())),
 		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end())),
 		functor_ComputeCutPointsWithLine(
 			thrust::raw_pointer_cast(_d_vec_IsCutPoint.data()), 
 			thrust::raw_pointer_cast(d_vec_ellipseSet.data()),
-			d_vec_ellipseSet.size(),
+			_h_vec_ellipseSet->size(),
 			thrust::raw_pointer_cast(d_vec_origPosScreen.data()),
 			thrust::raw_pointer_cast(_d_vec_lineIndex.data()))
 			);
@@ -974,7 +977,7 @@ void SetEllipse(std::vector<ellipse> *ellipseSet)
 		exit(1);
 	}
 	//_ellipseSet = ellipseSet;
-	d_vec_ellipseSet = *ellipseSet;
+	_h_vec_ellipseSet = ellipseSet;
 }
 
 void SetPickedLineSet(std::vector<int> *pickedLineSet)

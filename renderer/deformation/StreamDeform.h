@@ -342,18 +342,19 @@ class StreamDeform
 
 	//lens
 	float _biggestSize;
-	VECTOR4 _lens_center;
-	float _lens_radius;
-	float _lensEllipseRatio;
-	float _lensEllipseAngle;
+	//VECTOR4 _lens_center;
+	//float _lens_radius;
+	//float _lensEllipseRatio;
+	//float _lensEllipseAngle;
+	ellipse _ellLens;
 	float _lensDepth_clip;
-	VECTOR2 _lens_center_screen;
+	//VECTOR2 _lens_center_screen;
 	bool _onEllipseEndPt;
 	bool _onLongAxisEndPt;
 
 	float* _pfMin;
 	float* _pfMax;
-
+	VECTOR4 _dataCenterObject;
 
 
 
@@ -363,7 +364,7 @@ class StreamDeform
 	void ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices, vector<vector<int>> &streamGroups);
 
 	float Object2ScreenLength(float length_object, VECTOR4 center_object);
-	float Screen2ObjectLength(float length_screen, float depth_screen);
+	//float Screen2ObjectLength(float length_screen, float depth_screen);
 
 	void GenSkeletonByLines(vector<int> lineIndex);
 	void ComputeNewPrimitives();
@@ -411,7 +412,7 @@ public:
 	//vector<VECTOR3>* GetAlphaShape(int ib);
 	void SetPara(float p);
 	void PickBundle(int ib);
-	void AddBundle(int ib);
+	void AddRemoveBundle(int ib);
 	//vector<Point_3> GetBundlePoints();
 	void RunCuda();
 	void resetOrigPos();
@@ -438,7 +439,7 @@ public:
 	void MovePickBlock(DIRECTION dir);
 
 	void ChangeLensDepth(int m);
-	void ChangeLensOnScreen(float x, float y);
+	//void ChangeLensOnScreen(float x, float y);
 	void MoveLensCenterOnScreen(float dx, float dy);
 	void MoveLensEndPtOnScreen(float x, float y);
 
@@ -446,7 +447,9 @@ public:
 	SOURCE_MODE GetSourceMode();
 	void ChangeLensRadius(int m);
 	void ChangeLensAngle(int m);
-	void ChangeLensRatio(int m);
+
+	void SetLensAxis(VECTOR2 startPoint, VECTOR2 endPoint);
+	//void ChangeLensRatio(int m);
 	bool InsideFirstEllipse(float x, float y);
 	bool OnEllipseEndPoint(float x, float y);
 

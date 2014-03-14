@@ -22,24 +22,6 @@ inline void PrintMatrix(T m[16])
 		<<m[3]<<","<<m[7]<<","<<m[11]<<","<<m[15]<<endl;
 }
 
-inline VECTOR4 GetColor(float a)
-{
-	//VECTOR4 <Point x="0" o="1" r="0.192157" g="0.211765" b="0.584314"/>
- // <Point x="0.1" o="1" r="0.270588" g="0.458824" b="0.705882"/>
- // <Point x="0.2" o="1" r="0.454902" g="0.678431" b="0.819608"/>
- // <Point x="0.3" o="1" r="0.670588" g="0.85098" b="0.913725"/>
- // <Point x="0.4" o="1" r="0.878431" g="0.952941" b="0.972549"/>
- // <Point x="0.5" o="1" r="1" g="1" b="0.74902"/>
- // <Point x="0.6" o="1" r="0.996078" g="0.878431" b="0.564706"/>
- // <Point x="0.7" o="1" r="0.992157" g="0.682353" b="0.380392"/>
- // <Point x="0.8" o="1" r="0.956863" g="0.427451" b="0.262745"/>
- // <Point x="0.9" o="1" r="0.843137" g="0.188235" b="0.152941"/>
- // <Point x="1" o="1" r="0.647059" g="0" b="0.14902"/>
-	VECTOR4 blue(0.192157f, 0.211765f, 0.584314f, 1.0f);
-	VECTOR4 red(0.647059f, 0.0f, 0.14902, 1.0f);
-	return blue + (red - blue) * a;
-}
-
 #define NUM_BUNDLE 36
 //#define FILENAME_BUNDLE "D:/Dropbox/streamline/interactive_osuflow/build/renderer/examples/Release/data/15plume3d440_seed300_len500_norm.bdl"
 //#define FILENAME_BUNDLE "data/15plume3d440_seed300_len500_norm.bdl"
@@ -191,36 +173,6 @@ inline bool invertMatrix(T m[16], T invOut[16])
     return true;
 }
 
-//this function is not a good approach, NOT USED ANY MORE
-inline void InterpolateHull(vector<VECTOR3> &convexHull2D, float generalSize)
-{
-	list<VECTOR3> hullList;
-	std::copy(convexHull2D.begin(), convexHull2D.end(), std::back_inserter(hullList));
-	float stepSize = generalSize * 0.2;
-	list<VECTOR3>::iterator it = hullList.begin();
-	while(true)
-	{
-		list<VECTOR3>::iterator itNext = it;
-		itNext++;
-		if(itNext == hullList.end())
-			itNext = hullList.begin();
-		
-		VECTOR3 diff = *it - *itNext;
-		int cnt = diff.GetMag() / stepSize;
-		cout<<"cnt:\t"<<cnt<<endl;
-		for(int i = 1; i < cnt; i++)
-		{
-			hullList.insert(itNext, *it + ((float)i / cnt) * diff );
-		}
-		it = itNext;
-		if(it == hullList.begin())
-			break;
-	}
-	cout<<"hullList.size():"<<hullList.size()<<endl;
-	convexHull2D.clear();
-	std::copy(hullList.begin(), hullList.end(), std::back_inserter(convexHull2D));
-}
-
 inline void RefineHull(vector<VECTOR3> &convexHull2D, float generalSize)
 {
 	vector<VECTOR3> newHull;
@@ -347,10 +299,7 @@ StreamDeform::StreamDeform(void)
 	_VertexCopy = NULL;
 	_VertexCopyPrev = NULL;
 
-	
-	//_pickBlockStart = VECTOR3(0, 0, 0);
 	_pickBlockStart = VECTOR3(0, 0, 0);
-	
 	_pickBlockSize = VECTOR3(10, 10, 10);
 	_pickBlockMoveStep = 10;
 
@@ -383,6 +332,16 @@ void StreamDeform::SetSourceMode(SOURCE_MODE mode)
 	{
 	//	resetPos();
 		_pickedLineSetOrig.clear();
+		//_focusEllipseSet.clear();
+		if(_focusEllipseSet.size() == 0)
+			_focusEllipseSet.push_back(_ellLens);
+	
+		if(_lensDepth_clip < 0)
+		{
+			//VECTOR4 dataCenterObject;
+
+			_lensDepth_clip = Object2Clip(_dataCenterObject, _ModelViewMatrix, _ProjectionMatrix)[2];
+		}
 	//	RestoreStreamConnectivity();
 	}
 	
@@ -450,6 +409,7 @@ void StreamDeform::Init()
 			_primitiveColors.push_back(c);
 		}
 	}
+	SetEllipse(&_focusEllipseSet);
 }
 
 void StreamDeform::SetPara(float p)
@@ -499,6 +459,12 @@ void StreamDeform::SetWinSize(int _winWidth, int _winHeight)
 {
 	winWidth = _winWidth;
 	winHeight = _winHeight;
+
+	_ellLens.a = (winWidth + winHeight )* 0.04;
+	_ellLens.b = _ellLens.a;
+	_ellLens.angle = 0;
+	_ellLens.x = winWidth * 0.5;
+	_ellLens.y = winHeight * 0.5;
 }
 
 template<typename T>
@@ -519,7 +485,8 @@ vector<Point_2> StreamDeform::Object2Screen(vector<T> pointSet)
 /*******lens***********/
 bool StreamDeform::InsideFirstEllipse(float x, float y)
 {
-	VECTOR2 dir2Center = VECTOR2(x, y) - _lens_center_screen;	//current distance to the center
+	VECTOR2 lens_center_screen = VECTOR2(_focusEllipseSet.front().x, _focusEllipseSet.front().y);
+	VECTOR2 dir2Center = VECTOR2(x, y) - lens_center_screen;	//current distance to the center
 	float dist2Center = (dir2Center).GetMag();	//current distance to the center 
 	float t = atan2(dir2Center[1], dir2Center[0]);
 	if(t < 0)
@@ -534,7 +501,7 @@ bool StreamDeform::InsideFirstEllipse(float x, float y)
 
 bool StreamDeform::OnEllipseEndPoint(float x, float y)
 {
-	float angle = atan2(y - _lens_center_screen[1], x - _lens_center_screen[0]) + M_PI;
+	float angle = atan2(y - _focusEllipseSet.front().y, x - _focusEllipseSet.front().x) + M_PI;
 	vector<VECTOR2> endPoints;
 	for(float t = 0; t < M_PI * 2; t += (M_PI * 0.5))
 	{
@@ -563,31 +530,37 @@ void StreamDeform::ChangeLensDepth(int m)
 	float step = 0.0002;
 
 	//should be Object2Camera, but not Object2Clip
-	VECTOR4 lens_center_clip = Object2Clip(_lens_center, _ModelViewMatrix, _ProjectionMatrix);
+	//VECTOR4 lens_center_clip = Object2Clip(_lens_center, _ModelViewMatrix, _ProjectionMatrix);
 	if(m > 0)
-		lens_center_clip[2] += step;
+		_lensDepth_clip += step;
 	else
-		lens_center_clip[2] -= step;
-	_lens_center = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
+		_lensDepth_clip -= step;
+	//_lens_center = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
+	//SetEllipse(&_focusEllipseSet);
 	ProcessAllStream();
 }
 
 void StreamDeform::MoveLensCenterOnScreen(float dx, float dy)
 {
-	VECTOR2 center_clip_2 = Screen2Clip(VECTOR2(_lens_center_screen[0] + dx, _lens_center_screen[1] + dy), winWidth, winHeight);
-	VECTOR4 lens_center_clip = VECTOR4(center_clip_2[0], center_clip_2[1], _lensDepth_clip, 1);
-	_lens_center = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
+	//VECTOR2 center_clip_2 = Screen2Clip(VECTOR2(_lens_center_screen[0] + dx, _lens_center_screen[1] + dy), winWidth, winHeight);
+	//VECTOR4 lens_center_clip = VECTOR4(center_clip_2[0], center_clip_2[1], _lensDepth_clip, 1);
+	//_lens_center = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
+	_focusEllipseSet.front().x += dx;
+	_focusEllipseSet.front().y += dy;
 	LensTouchLine();
 }
 
 void StreamDeform::MoveLensEndPtOnScreen(float x, float y)
 {
-	VECTOR2 dirFromCenter = VECTOR2(x, y) - _lens_center_screen;
+	VECTOR2 lens_center_screen = VECTOR2(_focusEllipseSet.front().x, _focusEllipseSet.front().y);
+	VECTOR2 dirFromCenter = VECTOR2(x, y) - lens_center_screen;
 	float angle = atan2(dirFromCenter[1], dirFromCenter[0]);
+	float length = dirFromCenter.GetMag();// Screen2ObjectLength(dirFromCenter.GetMag(), _lensDepth_clip);
 
 	if(_onLongAxisEndPt)
 	{
-		_lensEllipseRatio = dirFromCenter.GetMag() / _focusEllipseSet[0].b;
+		//_lensEllipseRatio = dirFromCenter.GetMag() / _focusEllipseSet[0].b;
+		_focusEllipseSet.front().a = length;
 	}
 	else
 	{
@@ -599,9 +572,9 @@ void StreamDeform::MoveLensEndPtOnScreen(float x, float y)
 		//VECTOR2 s1_screen = Clip2Screen(GetXY(Camera2Clip(s1_camera, tProjectionMatrixf)), winWidth, winHeight);
 		//float lens_radius_screen = (s1_screen - _lens_center_screen).GetMag();
 		//
-		float lens_radius_screen = (VECTOR2(x, y) - _lens_center_screen).GetMag();
+	//	float lens_radius_screen = (VECTOR2(x, y) - _lens_center_screen).GetMag();
 		//cout<<"lens_radius_screen :"<<lens_radius_screen <<endl;
-		_lens_radius = Screen2ObjectLength(lens_radius_screen, _lensDepth_clip);
+		_focusEllipseSet.front().b = length;
 
 		//float a = 
 		//cout<<"_lens_radius :"<<_lens_radius <<endl;
@@ -609,45 +582,47 @@ void StreamDeform::MoveLensEndPtOnScreen(float x, float y)
 	}
 	if(angle < 0)
 		angle += M_PI;
-	_lensEllipseAngle = angle;
+	//_lensEllipseAngle = angle;
+	_focusEllipseSet.front().angle = angle ;
 	LensTouchLine();
 }
 
-void StreamDeform::ChangeLensOnScreen(float x, float y)
-{
-	VECTOR4 lens_center_clip = Object2Clip(_lens_center, _ModelViewMatrix, _ProjectionMatrix);
-	lens_center_clip[0] += x;
-	lens_center_clip[1] += y;
-
-	_lens_center = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
-	LensTouchLine();
-}
+//void StreamDeform::ChangeLensOnScreen(float x, float y)
+//{
+//	VECTOR4 lens_center_clip = Object2Clip(_lens_center, _ModelViewMatrix, _ProjectionMatrix);
+//	lens_center_clip[0] += x;
+//	lens_center_clip[1] += y;
+//
+//	_lens_center = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
+//	LensTouchLine();
+//}
 
 void StreamDeform::ChangeLensAngle(int m)
 {
-	_lensEllipseAngle += (m * 0.2);
+	_focusEllipseSet.front().angle += (m * 0.2);
 	LensTouchLine();
 }
+//
+//void StreamDeform::ChangeLensRatio(int m)
+//{
+//	_lensEllipseRatio += (m * 0.1);
+//	LensTouchLine();
+//}
 
-void StreamDeform::ChangeLensRatio(int m)
-{
-	_lensEllipseRatio += (m * 0.1);
-	LensTouchLine();
-}
-
-float* StreamDeform::GetLensCenter()
-{
-	return &_lens_center[0];
-}
+//float* StreamDeform::GetLensCenter()
+//{
+//	return &_lens_center[0];
+//}
 
 void StreamDeform::GenHullEllipse()
 {
+	_focusEllipseSet.clear();
+	_focusHullSet.clear();
 	if(0 == _picked3DHulls.size() )
 		return;
 
 	vector<vector<Point_2>> convexHull2DSet;
-	_focusEllipseSet.clear();
-	_focusHullSet.clear();
+	
 	//for(int i = 0; i < _focusPointSet.size(); i++)
 	for(int i = 0; i < _picked3DHulls.size(); i++)
 	{
@@ -695,27 +670,27 @@ float StreamDeform::Object2ScreenLength(float length_object, VECTOR4 center_obje
 	float length_screen = (s1_screen - center_screen).GetMag();
 	return length_screen;
 }
-
-float StreamDeform::Screen2ObjectLength(float length_screen, float depth_screen)
-{
-	VECTOR4 lens_center_camera = Object2Camera(_lens_center, _ModelViewMatrix);
-	VECTOR4 lens_center_clip = Camera2Clip(lens_center_camera, _ProjectionMatrix);
-
-	//VECTOR4 center_object = VECTOR4(0,0,depth_object,0); 
-	VECTOR2 center_clip_2 = Screen2Clip(VECTOR2(0,0), winWidth, winHeight);
-	VECTOR4 center_clip = VECTOR4(center_clip_2[0], center_clip_2[1], lens_center_clip[2], 1);
-	//VECTOR4 center_camera = Clip2Camera(center_clip, _invProjectionMatrixf);
-	VECTOR4 center_object = Clip2Object(center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
-	
-	VECTOR2 s_clip_2 = Screen2Clip(VECTOR2(length_screen,0), winWidth, winHeight);
-	VECTOR4 s_clip = VECTOR4(s_clip_2[0], s_clip_2[1], lens_center_clip[2], 1);
-	//VECTOR4 s_camera = Clip2Camera(s_clip, _invProjectionMatrixf);
-	VECTOR4 s_object = Clip2Object(s_clip, _invModelViewMatrixf, _invProjectionMatrixf);
-
-	//float length_camera = (center_camera - s_camera).GetMag();
-	float length_camera = (center_object - s_object).GetMag();
-	return length_camera;
-}
+//
+//float StreamDeform::Screen2ObjectLength(float length_screen, float depth_screen)
+//{
+//	VECTOR4 lens_center_camera = Object2Camera(_lens_center, _ModelViewMatrix);
+//	VECTOR4 lens_center_clip = Camera2Clip(lens_center_camera, _ProjectionMatrix);
+//
+//	//VECTOR4 center_object = VECTOR4(0,0,depth_object,0); 
+//	VECTOR2 center_clip_2 = Screen2Clip(VECTOR2(0,0), winWidth, winHeight);
+//	VECTOR4 center_clip = VECTOR4(center_clip_2[0], center_clip_2[1], lens_center_clip[2], 1);
+//	//VECTOR4 center_camera = Clip2Camera(center_clip, _invProjectionMatrixf);
+//	VECTOR4 center_object = Clip2Object(center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
+//	
+//	VECTOR2 s_clip_2 = Screen2Clip(VECTOR2(length_screen,0), winWidth, winHeight);
+//	VECTOR4 s_clip = VECTOR4(s_clip_2[0], s_clip_2[1], lens_center_clip[2], 1);
+//	//VECTOR4 s_camera = Clip2Camera(s_clip, _invProjectionMatrixf);
+//	VECTOR4 s_object = Clip2Object(s_clip, _invModelViewMatrixf, _invProjectionMatrixf);
+//
+//	//float length_camera = (center_camera - s_camera).GetMag();
+//	float length_camera = (center_object - s_object).GetMag();
+//	return length_camera;
+//}
 
 void StreamDeform::RunCuda()
 {
@@ -756,23 +731,23 @@ void StreamDeform::RunCuda()
 	
 	SetMatrix(tModelViewMatrixf, tProjectionMatrixf, _invModelViewMatrixf, _invProjectionMatrixf);
 
-	if(SOURCE_MODE::MODE_LENS == _sourceMode)
-	{
-		VECTOR4 center_object(_lens_center[0], _lens_center[1], _lens_center[2], 1);
+	//if(SOURCE_MODE::MODE_LENS == _sourceMode)
+	//{
+	//	VECTOR4 center_object(_lens_center[0], _lens_center[1], _lens_center[2], 1);
 
-		//http://stackoverflow.com/questions/3717226/radius-of-projected-sphere
-		VECTOR4 lens_center_camera = Object2Camera(center_object, tModelViewMatrixf);
-		VECTOR4 lens_center_clip = Camera2Clip(lens_center_camera, tProjectionMatrixf);
-		_lens_center_screen = Clip2Screen(GetXY(lens_center_clip), winWidth, winHeight);
+	//	//http://stackoverflow.com/questions/3717226/radius-of-projected-sphere
+	//	VECTOR4 lens_center_camera = Object2Camera(center_object, tModelViewMatrixf);
+	//	VECTOR4 lens_center_clip = Camera2Clip(lens_center_camera, tProjectionMatrixf);
+	//	_lens_center_screen = Clip2Screen(GetXY(lens_center_clip), winWidth, winHeight);
 
-		float lens_radius_screen = Object2ScreenLength(_lens_radius, _lens_center);
-		ellipse lensEllipse(_lens_center_screen[0], _lens_center_screen[1], lens_radius_screen * _lensEllipseRatio, lens_radius_screen , _lensEllipseAngle);
-		_lensDepth_clip = lens_center_clip[2];
-		_focusEllipseSet.clear();
-		_focusEllipseSet.push_back(lensEllipse);
-	}
+	//	float lens_radius_screen = Object2ScreenLength(_lens_radius, _lens_center);
+	//	//ellipse lensEllipse(_lens_center_screen[0], _lens_center_screen[1], lens_radius_screen * _lensEllipseRatio, lens_radius_screen , _lensEllipseAngle);
+	//	_lensDepth_clip = lens_center_clip[2];
+	//	//_focusEllipseSet.clear();
+	//	//_focusEllipseSet.push_back(lensEllipse);
+	//}
 
-	SetEllipse(&_focusEllipseSet);
+	//SetEllipse(&_focusEllipseSet);
 	SetHull(&_focusHullSet);
 	SetVBOData(_d_raw_clip, d_raw_tangent);
 
@@ -896,25 +871,44 @@ void StreamDeform::UpdateVertexLineIndexForCut()
 //	SetPickedLineCUDA(&_pickedLineSet[0], _pickedLineSet.size());
 }
 
-void StreamDeform::AddBundle(int ib)
+void StreamDeform::AddRemoveBundle(int ib)
 {
+	_sourceMode = SOURCE_MODE::MODE_BUNDLE;
 	//have to reset original position, because the newly added bundle is deformed
 	//however, the original position is needed for deciding groups
 	RestoreAllStream();
-//	ProcessAllStream();
-	_sourceMode = SOURCE_MODE::MODE_BUNDLE;
-	_pickedBundleSet.insert(ib);
+	std::set<int>::iterator it;
+	it = _pickedBundleSet.find(ib);
+	if(it == _pickedBundleSet.end())
+		_pickedBundleSet.insert(ib);
+	else
+		_pickedBundleSet.erase(it);
 
 	_pickedLineSet.clear();
 	for(set<int>::iterator it = _pickedBundleSet.begin(); it != _pickedBundleSet.end(); ++it)
 		_pickedLineSet.insert(_pickedLineSet.end(), _streamBundles[*it].begin(), _streamBundles[*it].end());
-
-	_pickedLineSetOrig = _pickedLineSet;
 	UpdateVertexLineIndex();
 
-	/*BuildLineGroups();
-	if(_deformMode == DEFORM_MODE::MODE_LINE)
-		ProcessCut();*/
+	_pickedLineSetOrig = _pickedLineSet;
+
+	ProcessAllStream();
+}
+
+void StreamDeform::SetLensAxis(VECTOR2 startPoint, VECTOR2 endPoint)
+{
+	VECTOR2 centerPoint = (startPoint + endPoint) * 0.5;
+	ellipse ellLens;
+	VECTOR2 dir = startPoint - endPoint;
+	ellLens.x = centerPoint[0];
+	ellLens.y = centerPoint[1];
+	ellLens.a = dir.GetMag() * 0.5;
+	ellLens.b = ellLens.a * 0.5;
+	ellLens.angle = atan2( dir[1], dir[0]);
+	_focusEllipseSet.clear();
+	_focusEllipseSet.push_back(ellLens);
+//	SetEllipse(&_focusEllipseSet);
+
+	RestoreAllStream();
 	ProcessAllStream();
 }
 
@@ -973,11 +967,11 @@ inline bool BoxOverlap(box3 b1, box3 b2, float threshold)
 	return true;
 }
 
-inline bool BoxOverlap(box2 b1, box2 b2, float threshold)
+inline bool BoxOverlap(box2 b1, box2 b2, float threshold[2])
 {
 	//float threshold = _biggestSize * 0.05;
 	for(int i = 0; i < 2; i++)
-		if((b2.min[i] - b1.max[i]) > threshold || (b1.min[i] - b2.max[i]) > threshold)
+		if((b2.min[i] - b1.max[i]) > threshold[i] || (b1.min[i] - b2.max[i]) > threshold[i])
 			return false;
 	return true;
 }
@@ -1036,7 +1030,7 @@ void StreamDeform::ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices,
 	//cout<<"**3"<<endl;
 	//cout<<"groupBoxes.size():"<<groupBoxes.size()<<endl;
 	int preSize = groupBoxes.size() + 1;
-	float threshold = 0.0;
+	float threshold[2];// = 0.0;
 	while(preSize > groupBoxes.size())
 	{
 		//for(int i = 0; i < groupBoxes.size(); i++)
@@ -1048,6 +1042,8 @@ void StreamDeform::ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices,
 			list<box2>::iterator jt = it;
 			for(++jt; jt !=groupBoxes.end(); ++jt)
 			{
+				threshold[0] = ((it->max[0] - it->min[0]) + (jt->max[0] - jt->min[0])) * 0.3;
+				threshold[1] = ((it->max[1] - it->min[1]) + (jt->max[1] - jt->min[1])) * 0.3;
 				if(BoxOverlap(*it, *jt, threshold))
 				{
 					//it->print();
@@ -1154,44 +1150,19 @@ void StreamDeform::PickBundle(int ib)
 	_sourceMode = SOURCE_MODE::MODE_BUNDLE;
 
 	_pickedBundleSet.clear();
-	RestoreStreamConnectivity();
-	//_focusPointSet.clear();
-	//cout<<"**a"<<endl;
+	RestoreAllStream();
 	if(ib >= 0)
 	{
-		
 		_pickedBundleSet.insert(ib);
-		/*
-		if(_bundleSamplePoints.size() > ib)
-			_focusPointSet.push_back(_bundleSamplePoints[ib]);*/
-	//cout<<"**b"<<endl;
-
-	//	//pickedBundleIndex = ib;
-	//	cout<<"pickedBundleIndex:"<<pickedBundleIndex <<endl;
-		//ReSetDeformMode(ib);
-	//cout<<"**e"<<endl;
-		
-	//cout<<"**c"<<endl;
-
 		_pickedLineSet.clear();
-	//for(int i = 0; i < _pickedBundleSet.size(); i++)
-	for(set<int>::iterator it = _pickedBundleSet.begin(); it != _pickedBundleSet.end(); ++it)
-		_pickedLineSet.insert(_pickedLineSet.end(), _streamBundles[*it].begin(), _streamBundles[*it].end());
+		for(set<int>::iterator it = _pickedBundleSet.begin(); it != _pickedBundleSet.end(); ++it)
+			_pickedLineSet.insert(_pickedLineSet.end(), _streamBundles[*it].begin(), _streamBundles[*it].end());
 
 		_pickedLineSetOrig = _pickedLineSet;
-	UpdateVertexLineIndex();
-
-
-	BuildLineGroups();
-
-	if(_deformMode == DEFORM_MODE::MODE_LINE)
-		ProcessCut();
-	//cout<<"**d"<<endl;
-
-		//_picked3DHulls.clear();
-		//_picked3DHulls.push_back(_bundleHull[ib]);
-		//_picked3DHulls = hulls;
 	}
+	UpdateVertexLineIndex();
+	ProcessAllStream();
+
 }
 
 void StreamDeform::ComputeNewPrimitives()
@@ -1313,18 +1284,14 @@ void StreamDeform::SetDomain(float pfMin[4], float pfMax[4])
 	_pickBlockStart = VECTOR3((pfMin[0] + pfMax[0]) * 0.5, (pfMin[1] + pfMax[1]) * 0.5, (pfMin[2] + pfMax[2]) * 0.5);
 	_pickBlockSize = VECTOR3(30, 30, 30);
 
+	//VECTOR4 dataCenterObject, dataCenterClip;
+	//_lens_radius = _biggestSize * 0.1;
+	//_lensEllipseRatio = 1.0;
+	//_lensEllipseAngle = 0;
 	for(int i = 0; i < 4; i++)
-	{
-		_lens_center[i] = (_pfMin[i] + _pfMax[i]) * 0.5;
-		volumeSize[i] = _pfMax[i] - _pfMin[i];
-	}
-	_lens_center[3] = 1;
-
-	_biggestSize = max(max(volumeSize[0], volumeSize[1]), volumeSize[2]);
-	_lens_radius = _biggestSize * 0.1;
-	_lensEllipseRatio = 1.0;
-	_lensEllipseAngle = 0;
-
+		_dataCenterObject[i] = (pfMin[i] + pfMax[i]) * 0.5;
+	_dataCenterObject[3] = 1;
+	_lensDepth_clip =  -1;
 	SetLens(&_lensDepth_clip);
 }
 
@@ -1371,13 +1338,13 @@ vector<VECTOR4>* StreamDeform::GetPrimitiveColors()
 }
 
 
-void StreamDeform::ChangeLensRadius(int m)
-{
-	if(m > 0)
-		_lens_radius *= 1.25;
-	else
-		_lens_radius *= 0.8;
-}
+//void StreamDeform::ChangeLensRadius(int m)
+//{
+//	if(m > 0)
+//		_lens_radius *= 1.25;
+//	else
+//		_lens_radius *= 0.8;
+//}
 
 void StreamDeform::PickStreamByBlock()
 {
