@@ -153,25 +153,25 @@ __device__ inline float3 GetNormal(int i, int *lineIndex, float4* pos)
 	if(i >= (NV - 2) || lineIndex[i] != lineIndex[i + 1])	//last point of a streamline
 	{
 		A = Object2Camera(pos[i - 2]);
-		B = Object2Camera(pos[i - 1]);
+		//B = Object2Camera(pos[i - 1]);
 		C = pos_camera;
 	}
 	else if(i <= 1 || lineIndex[i] != lineIndex[i - 1])	//first point of a streamline
 	{
 		A = pos_camera;
-		B = Object2Camera(pos[i + 1]);
+		//B = Object2Camera(pos[i + 1]);
 		C = Object2Camera(pos[i + 2]);
 	}
 	else
 	{
 		A = Object2Camera(pos[i - 1]);
-		B = pos_camera;
+		//B = pos_camera;
 		C = Object2Camera(pos[i + 1]);
 	}
-	float3 BC = GetXYZ(C - B);
-	float3 AB = make_float3(B - A);
-	float3 binormal = cross(AB, BC);//AB X BC
-	return AB;// crossProduct(AB, binormal);
+//	float3 BC = GetXYZ(C - B);
+//	float3 AB = make_float3(B - A);
+//	float3 binormal = cross(AB, BC);//AB X BC
+	return normalize(GetXYZ(C - A));// crossProduct(AB, binormal);
 }
 
 struct functor_computeNormal
@@ -181,7 +181,7 @@ struct functor_computeNormal
 	template <typename T>
 	__device__ void operator() (T t)
 	{
-		thrust::get<1>(t) = GetNormal(thrust::get<0>(t), lineIndex, pos);
+		thrust::get<1>(t) = GetNormal(thrust::get<0>(t), lineIndex, pos);//make_float3(0,1,0);//
 	}
 
 	functor_computeNormal(int *_lineIndex, float4* _pos)
