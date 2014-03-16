@@ -635,8 +635,11 @@ CLineRendererInOpenGLDeform::_Draw()
 	//draw other features 
 	//draw lens center
 	glUseProgram(0);
-	glColor3f(1.0f, 0.0f, 0.0f);
-	//Draw3DPoint(_deformLine.GetLensCenter());
+	if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LENS)
+	{
+		glColor4f(0.0f, 1.0f, 0.145f, 0.5f);
+		Draw3DPoint(_deformLine.GetLensCenter());
+	}
 
 	glPopMatrix();
 
@@ -680,8 +683,8 @@ CLineRendererInOpenGLDeform::_Draw()
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 0.5), 4);
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI), 4);
 			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 1.5), 4);
-			VECTOR2 lens_center_screen = VECTOR2(ellipseSet.front().x, ellipseSet.front().y);
-			DrawCircle(lens_center_screen, 2);
+			//VECTOR2 lens_center_screen = VECTOR2(ellipseSet.front().x, ellipseSet.front().y);
+			//DrawCircle(lens_center_screen, 2);
 		}
 	}
 
@@ -1014,6 +1017,11 @@ void CLineRendererInOpenGLDeform::SetCutLineCoords(VECTOR2 startPoint, VECTOR2 e
 void CLineRendererInOpenGLDeform::CutLineFinish()
 {
 	_deformLine.SetLensAxis(_cutLine[0], _cutLine[1]);
+}
+
+void CLineRendererInOpenGLDeform::SetDeformOn(bool b)
+{
+	_deformLine.SetDeformOn(b);
 }
 
 //Used only when new data loaded

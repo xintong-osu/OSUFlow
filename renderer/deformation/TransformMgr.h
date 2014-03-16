@@ -170,7 +170,8 @@ __device__ __host__ inline float2 Clip2Screen(float2 p, float winWidth, float wi
 	return p2;
 }
 
-__device__ __host__ inline VECTOR2 Clip2Screen(VECTOR2 p, float winWidth, float winHeight)
+template <typename T>
+__device__ __host__ inline VECTOR2 Clip2Screen(T p, float winWidth, float winHeight)
 {
 	VECTOR2 p2;
 	p2[0] = (p[0] + 1) * winWidth / 2.0;

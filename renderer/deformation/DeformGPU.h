@@ -77,7 +77,9 @@ void SetVBOData(float4* d_raw_clip, float3* d_raw_tangent);
 
 void SetLineIndexCUDA(int *data);
 
-void SetLens(float* lensDepth_clip);
+void SetLens(VECTOR4* lensCenterObject);
+
+void SetDeformOnPara(bool *deformOn);
 
 void launch_kernel();
 
@@ -89,6 +91,7 @@ std::vector<VECTOR2> GetPosScreenOrig();
 
 void AssignLineIndexFromDevice(int *data);
 
+//void SetStreamDeform(void* sd);
 
 //reset the vertex position to its original position
 void resetPos();
@@ -117,6 +120,7 @@ inline void __checkCudaErrors( cudaError err, const char *file, const int line )
         exit(-1);
     }
 }
+
 //
 //// General GPU Device CUDA Initialization
 //int gpuDeviceInit(int devID)
@@ -156,5 +160,15 @@ inline void __checkCudaErrors( cudaError err, const char *file, const int line )
 //
 //    return devID;
 //}
+
+
+template <typename T>
+inline void PrintMatrix(T m[16])
+{
+	cout<<m[0]<<","<<m[4]<<","<<m[8]<<","<<m[12]<<endl
+		<<m[1]<<","<<m[5]<<","<<m[9]<<","<<m[13]<<endl
+		<<m[2]<<","<<m[6]<<","<<m[10]<<","<<m[14]<<endl
+		<<m[3]<<","<<m[7]<<","<<m[11]<<","<<m[15]<<endl;
+}
 
 #endif

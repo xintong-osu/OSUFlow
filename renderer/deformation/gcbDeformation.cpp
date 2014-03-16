@@ -285,12 +285,15 @@ _KeyboardFunc(unsigned char ubKey, int iX, int iY)
 		break;
 	case '7':
 		cLineRenderer.getDeformLine()->SetDeformMode(MODE_HULL);
+		cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
 		break;
 	case '8':
 		cLineRenderer.getDeformLine()->SetDeformMode(MODE_ELLIPSE);
+		cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
 		break;
 	case '9':
 		cLineRenderer.getDeformLine()->SetDeformMode(MODE_LINE);
+		cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
 		break;
 	case 't':
 		cLineRenderer.getDeformLine()->RedoDeformation();
@@ -363,11 +366,14 @@ void _MouseFunc(int button, int state, int x, int y)
 				{
 					_dragLensEndPt = true;
 				}
+				cLineRenderer.SetDeformOn(false);
 			}
 			else if(state==GLUT_UP)
 			{
 				_dragLens = false;
 				_dragLensEndPt = false;
+				cLineRenderer.SetDeformOn(true);
+				cLineRenderer.getDeformLine()->FinishDrag();
 			}
 		}
 		//	//cLineRenderer.setDragging(true);
@@ -375,6 +381,10 @@ void _MouseFunc(int button, int state, int x, int y)
 		//}
 		//else if(state==GLUT_UP)
 		//	cLineRenderer.setDragging(false);
+	}
+	else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
+	{
+		cLineRenderer.getDeformLine()->UpdateLensScreen();
 	}
 	//redraw the picking space only when mouse release
 	//there are two cases for mouse release: 
@@ -402,6 +412,7 @@ void _TimerFunc(int value)
 
 void _MotionFunc(int x, int y)
 {
+
 	if(_dragLens)
 		cLineRenderer.getDeformLine()->MoveLensCenterOnScreen(x - _dragStartPos[0], y - _dragStartPos[1]);
 	

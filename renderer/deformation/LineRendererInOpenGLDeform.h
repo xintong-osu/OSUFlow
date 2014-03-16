@@ -218,6 +218,7 @@ public:
 	void CutLineFinish();
 	void SetCutLineCoords(VECTOR2 startPoint, VECTOR2 endPoint);
 	void SetWinSize(int w, int h);
+	void SetDeformOn(bool b);
 	//ADD-BY-TONG 02/12/2013-END
 };
 

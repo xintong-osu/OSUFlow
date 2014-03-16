@@ -11,6 +11,7 @@
 #include "thrust\remove.h"
 #include "TransformMgr.h"
 #include "DeformGPU.h"
+//#include "StreamDeform.h"
 
 #define TEST_PERFORMANCE 0
 
@@ -32,10 +33,11 @@ __device__ __constant__ float MODELVIEW[ 16 ];
 __device__ __constant__ float INVMODELVIEW[ 16 ];    
 __device__ __constant__ float PROJECTION[ 16 ];    
 __device__ __constant__ float INVPROJECTION[ 16 ]; 
-float *_h_modelview;
-float *_h_projection;
+float _h_modelview[16];
+float _h_projection[16];
 float *_invModelView;
 float *_invProjection;
+bool *_deformOn;
 
 thrust::device_vector<hull_type> d_vec_hullSet;
 
@@ -61,10 +63,18 @@ std::vector<int> *_pickedLineSet;
 
 //lens
 float *_lens_center;
-float *_lensDepth_clip;
+//float *_lensDepth_clip;
+float4* _lensCenterObject;
 
 DEFORM_MODE *_deformMode;
 SOURCE_MODE *_sourceMode;
+
+//StreamDeform* _deformLine;
+//
+//void SetStreamDeform(void* sd)
+//{
+//	_deformLine = (StreamDeform*)sd;
+//}
 
 __device__ __host__ inline float2 GetXY(float4 pos)
 {
@@ -540,13 +550,27 @@ struct functor_AssignLineIndexByLens
 
 void LensTouchLine()
 {
+	
+	//cout<<"tModelViewMatrixf:"<<endl;
+	//PrintMatrix(_h_modelview );
+	//cout<<"tProjectionMatrixf:"<<endl;
+	//PrintMatrix(_h_projection );
+
+	//float modelview[16], projection[16];
+	//_deformLine->GetModelViewMatrix(modelview);
+	//_deformLine->GetModelViewMatrix(projection);
+
+	float4 lensCenterClip = Object2Clip(*_lensCenterObject);
+	float lensDepth_clip = lensCenterClip.z;
+
 	thrust::device_vector<float2> d_vec_origPosScreen(_nv);
 	thrust::device_vector<float4> d_vec_origPosClip(_nv);
 	thrust::transform(_d_vec_origPos.begin(), _d_vec_origPos.end(), d_vec_origPosClip.begin(), functor_Object2Clip());
 	thrust::transform(d_vec_origPosClip.begin(), d_vec_origPosClip.end(), d_vec_origPosScreen.begin(), functor_Clip2Screen());
 
 	////http://stackoverflow.com/questions/3717226/radius-of-projected-sphere
-		
+	
+	//cout<<"lensDepth_clip:"<<lensDepth_clip<<endl;
 	//use the original position to solve the vibrating problem, because when deformed streamline changes depth
 	if(_h_vec_ellipseSet->size() > 0)
 	{
@@ -562,7 +586,7 @@ void LensTouchLine()
 				/*make_float2(ell.x, ell.y),
 				ell.a, */
 				ell,
-				*_lensDepth_clip));
+				lensDepth_clip));
 	}
 
 }
@@ -618,16 +642,19 @@ void launch_kernel()//, unsigned int mesh_width, unsigned int mesh_height, float
 	cout<<"_nv:"<<_nv<<endl;*/
 	thrust::device_vector<ellipse> d_vec_ellipseSet = *_h_vec_ellipseSet;
 
-	kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
-			thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
-			thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
-			_nv,
-			thrust::raw_pointer_cast(d_vec_ellipseSet.data()), 
-			thrust::raw_pointer_cast(d_vec_hullSet.data()), 
-			_h_vec_ellipseSet->size(),
-			*_deformMode,
-			_para);
-	check_cuda_errors(__FILE__, __LINE__);
+	if(*_deformOn)
+	{
+		kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
+				thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
+				thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
+				_nv,
+				thrust::raw_pointer_cast(d_vec_ellipseSet.data()), 
+				thrust::raw_pointer_cast(d_vec_hullSet.data()), 
+				_h_vec_ellipseSet->size(),
+				*_deformMode,
+				_para);
+		check_cuda_errors(__FILE__, __LINE__);
+	}
 
 
 #if TEST_PERFORMANCE
@@ -947,9 +974,9 @@ void SetVertexCoords(float* data, int n)
 	thrust::copy(_d_vec_pos.begin(), _d_vec_pos.end(), _d_vec_origPos.begin());
 }
 
-void SetLens(float* lensDepth_clip)
+void SetLens(VECTOR4* lensCenterObject)
 {
-	_lensDepth_clip = lensDepth_clip;
+	_lensCenterObject = (float4*)lensCenterObject;
 }
 
 void SetMode(DEFORM_MODE *deformMode, SOURCE_MODE *sourceMode)
@@ -1013,6 +1040,11 @@ void SetLineIndexCUDA(int *data)
 	//cout<<"_nv line index:" << _nv <<endl;
 }
 
+void SetDeformOnPara(bool *deformOn)
+{
+	 _deformOn = deformOn;
+}
+
 void AssignLineIndexFromDevice(int *data)
 {
 	//cout<<"AssignLineIndexFromDevice..."<<endl;
@@ -1045,10 +1077,14 @@ void SetMatrix(	float* modelview, float* projection, float* invModelView, float*
 	cudaMemcpyToSymbol(PROJECTION, projection, 16 * sizeof(float));
 	cudaMemcpyToSymbol(INVPROJECTION, invProjection, 16 * sizeof(float));
 
-	_h_modelview = modelview;
-	_h_projection = projection;
+	for(int i = 0; i < 16; i++)
+	{
+		_h_modelview[i] = modelview[i];
+		_h_projection[i] = projection[i];
+	}
 	_invModelView = invModelView;
 	_invProjection = invProjection;
+
 }
 
 std::vector<VECTOR2> GetPosScreenOrig()

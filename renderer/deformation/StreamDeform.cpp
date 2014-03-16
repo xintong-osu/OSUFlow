@@ -13,14 +13,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-template <typename T>
-inline void PrintMatrix(T m[16])
-{
-	cout<<m[0]<<","<<m[4]<<","<<m[8]<<","<<m[12]<<endl
-		<<m[1]<<","<<m[5]<<","<<m[9]<<","<<m[13]<<endl
-		<<m[2]<<","<<m[6]<<","<<m[10]<<","<<m[14]<<endl
-		<<m[3]<<","<<m[7]<<","<<m[11]<<","<<m[15]<<endl;
-}
+
 
 #define NUM_BUNDLE 36
 //#define FILENAME_BUNDLE "D:/Dropbox/streamline/interactive_osuflow/build/renderer/examples/Release/data/15plume3d440_seed300_len500_norm.bdl"
@@ -302,9 +295,13 @@ StreamDeform::StreamDeform(void)
 	_pickBlockStart = VECTOR3(0, 0, 0);
 	_pickBlockSize = VECTOR3(10, 10, 10);
 	_pickBlockMoveStep = 10;
+	_autoDeformMode = true;
 
 	SetMode(&_deformMode, &_sourceMode);
 	SetPickedLineSet(&_pickedLineSet);
+	//SetStreamDeform(this);
+	_deformOn = true;
+	SetDeformOnPara(&_deformOn);
 }
 
 vector<ellipse> StreamDeform::GetEllipse()
@@ -336,12 +333,7 @@ void StreamDeform::SetSourceMode(SOURCE_MODE mode)
 		if(_focusEllipseSet.size() == 0)
 			_focusEllipseSet.push_back(_ellLens);
 	
-		if(_lensDepth_clip < 0)
-		{
-			//VECTOR4 dataCenterObject;
 
-			_lensDepth_clip = Object2Clip(_dataCenterObject, _ModelViewMatrix, _ProjectionMatrix)[2];
-		}
 	//	RestoreStreamConnectivity();
 	}
 	
@@ -354,6 +346,12 @@ void StreamDeform::RedoDeformation()
 	//resetOrigPos();
 	RestoreAllStream();
 	ProcessAllStream();
+}
+
+void StreamDeform::FinishDrag()
+{
+	if(_deformMode == DEFORM_MODE::MODE_LINE)
+		RedoDeformation();
 }
 
 SOURCE_MODE StreamDeform::GetSourceMode()
@@ -467,6 +465,21 @@ void StreamDeform::SetWinSize(int _winWidth, int _winHeight)
 	_ellLens.y = winHeight * 0.5;
 }
 
+void StreamDeform::SetAutoDeformMode(bool b)
+{
+	_autoDeformMode = b;
+}
+
+VECTOR2 StreamDeform::Object2Screen(VECTOR4 point)
+{
+	GLdouble winX, winY, winZ;
+	gluProject((double)point[0], (double)point[1], (double)point[2],
+		_ModelViewMatrix, _ProjectionMatrix, _Viewport, 
+		&winX, &winY, &winZ);
+	return VECTOR2(winX, winY);
+}
+
+
 template<typename T>
 vector<Point_2> StreamDeform::Object2Screen(vector<T> pointSet)
 {
@@ -530,12 +543,12 @@ void StreamDeform::ChangeLensDepth(int m)
 	float step = 0.0002;
 
 	//should be Object2Camera, but not Object2Clip
-	//VECTOR4 lens_center_clip = Object2Clip(_lens_center, _ModelViewMatrix, _ProjectionMatrix);
+	VECTOR4 lens_center_clip = Object2Clip(_lensCenterObject, _ModelViewMatrix, _ProjectionMatrix);
 	if(m > 0)
-		_lensDepth_clip += step;
+		lens_center_clip[2] += step;
 	else
-		_lensDepth_clip -= step;
-	//_lens_center = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
+		lens_center_clip[2] -= step;
+	_lensCenterObject = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
 	//SetEllipse(&_focusEllipseSet);
 	ProcessAllStream();
 }
@@ -545,9 +558,36 @@ void StreamDeform::MoveLensCenterOnScreen(float dx, float dy)
 	//VECTOR2 center_clip_2 = Screen2Clip(VECTOR2(_lens_center_screen[0] + dx, _lens_center_screen[1] + dy), winWidth, winHeight);
 	//VECTOR4 lens_center_clip = VECTOR4(center_clip_2[0], center_clip_2[1], _lensDepth_clip, 1);
 	//_lens_center = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
-	_focusEllipseSet.front().x += dx;
-	_focusEllipseSet.front().y += dy;
+
+
+	VECTOR4 lens_center_clip = Object2Clip(_lensCenterObject, _ModelViewMatrix, _ProjectionMatrix);
+
+	VECTOR2 lensCenterScreen = Clip2Screen(lens_center_clip, winWidth, winHeight);
+
+	lensCenterScreen[0] += dx;
+	lensCenterScreen[1] += dy;
+
+	_focusEllipseSet.front().x = lensCenterScreen[0];
+	_focusEllipseSet.front().y = lensCenterScreen[1];
+
+	VECTOR2 lensCenterClipXY = Screen2Clip(lensCenterScreen, winWidth, winHeight);
+
+	VECTOR4 lensCenterClipNew(lensCenterClipXY[0], lensCenterClipXY[1], lens_center_clip[2], 1);
+
+	_lensCenterObject = Clip2Object(lensCenterClipNew, _invModelViewMatrixf, _invProjectionMatrixf);
+
 	LensTouchLine();
+}
+
+void StreamDeform::UpdateLensScreen()
+{
+	if(_sourceMode != SOURCE_MODE::MODE_LENS)
+		return;
+
+	VECTOR2 lensCenterScreen = Object2Screen(_lensCenterObject);
+
+	_focusEllipseSet.front().x = lensCenterScreen[0];
+	_focusEllipseSet.front().y = lensCenterScreen[1];
 }
 
 void StreamDeform::MoveLensEndPtOnScreen(float x, float y)
@@ -609,10 +649,10 @@ void StreamDeform::ChangeLensAngle(int m)
 //	LensTouchLine();
 //}
 
-//float* StreamDeform::GetLensCenter()
-//{
-//	return &_lens_center[0];
-//}
+float* StreamDeform::GetLensCenter()
+{
+	return &_lensCenterObject[0];
+}
 
 void StreamDeform::GenHullEllipse()
 {
@@ -697,8 +737,33 @@ void StreamDeform::RunCuda()
 #if TEST_PERFORMANCE
 	clock_t t0 = clock();
 #endif
-	if(_sourceMode == SOURCE_MODE::MODE_BUNDLE)// || _sourceMode == SOURCE_MODE::MODE_DYNAMIC_TRACE)
+
+	//for single bundle, automatically decide the deformation mode
+	if(_sourceMode == SOURCE_MODE::MODE_BUNDLE && _autoDeformMode)// || _sourceMode == SOURCE_MODE::MODE_DYNAMIC_TRACE)
+	{
 		GenHullEllipse();
+		if(_focusEllipseSet.size() == 1)
+		{
+			ellipse ell = _focusEllipseSet.front();
+			if(ell.a / ell.b > 3)
+			{
+				if(_deformMode != DEFORM_MODE::MODE_LINE)
+				{
+					_deformMode = DEFORM_MODE::MODE_LINE;
+					RedoDeformation();
+				}
+			}
+			else
+			{
+				if(_deformMode != DEFORM_MODE::MODE_ELLIPSE)
+				{
+					_deformMode = DEFORM_MODE::MODE_ELLIPSE;
+					RedoDeformation();
+				}
+			}
+		}
+	}
+
 	// map OpenGL buffer object for writing from CUDA
 	float3 *d_raw_tangent;
     size_t num_bytes; 
@@ -728,7 +793,8 @@ void StreamDeform::RunCuda()
 
 	invertMatrix(tModelViewMatrixf, _invModelViewMatrixf);
 	invertMatrix(tProjectionMatrixf, _invProjectionMatrixf);
-	
+
+
 	SetMatrix(tModelViewMatrixf, tProjectionMatrixf, _invModelViewMatrixf, _invProjectionMatrixf);
 
 	//if(SOURCE_MODE::MODE_LENS == _sourceMode)
@@ -776,6 +842,22 @@ void StreamDeform::LineLensProcess()
 	ComputeNewPrimitives();
 	AssignLineIndexFromDevice(_vertexLineIndex);
 	UpdateVertexLineIndexForCut();
+}
+
+void StreamDeform::GetModelViewMatrix(float matrix[16])
+{
+	float tModelViewMatrixf[16];
+	Bouble2FloatMatrix(_ModelViewMatrix, tModelViewMatrixf);
+	for(int i = 0; i < 16; i++)
+		matrix[i] = tModelViewMatrixf[i];
+}
+
+void StreamDeform::GetProjectionMatrix(float matrix[16])
+{
+	float tProjectionMatrixf[16];
+	Bouble2FloatMatrix(_ProjectionMatrix, tProjectionMatrixf);
+	for(int i = 0; i < 16; i++)
+		matrix[i] = tProjectionMatrixf[i];
 }
 
 void StreamDeform::ProcessCut()
@@ -1147,6 +1229,8 @@ void StreamDeform::GetPickCube(VECTOR3 &min, VECTOR3 &max)
 
 void StreamDeform::PickBundle(int ib)
 {
+	_autoDeformMode = true;
+
 	_sourceMode = SOURCE_MODE::MODE_BUNDLE;
 
 	_pickedBundleSet.clear();
@@ -1289,10 +1373,15 @@ void StreamDeform::SetDomain(float pfMin[4], float pfMax[4])
 	//_lensEllipseRatio = 1.0;
 	//_lensEllipseAngle = 0;
 	for(int i = 0; i < 4; i++)
-		_dataCenterObject[i] = (pfMin[i] + pfMax[i]) * 0.5;
-	_dataCenterObject[3] = 1;
-	_lensDepth_clip =  -1;
-	SetLens(&_lensDepth_clip);
+		_lensCenterObject[i] = (pfMin[i] + pfMax[i]) * 0.5;
+	_lensCenterObject[3] = 1;
+	//_lensDepth_clip =  -1;
+	SetLens(&_lensCenterObject);
+}
+
+void StreamDeform::SetDeformOn(bool b)
+{
+	_deformOn = b;
 }
 
 void StreamDeform::_LoadBundleFile(char *filename)

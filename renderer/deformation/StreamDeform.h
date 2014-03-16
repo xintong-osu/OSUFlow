@@ -10,6 +10,11 @@
 #include "Bundle.h"
 //#include "GenerateStreamline.h"
 
+
+#define COLOR2INDEX 256
+#include "modes.h"
+
+
 #include <CGAL/Cartesian.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Min_ellipse_2.h>
@@ -54,9 +59,6 @@ typedef CGAL::Delaunay_triangulation_2<K,Tds_2> Dt;
 typedef CGAL::Alpha_shape_2<Dt> Alpha_shape_2;
 typedef CGAL::Triangle_2<K> Triangle_2;
 typedef CGAL::Triangulation_2<K> Triangulation_2;
-
-#define COLOR2INDEX 256
-#include "modes.h"
 
 using namespace std;
 
@@ -327,6 +329,7 @@ class StreamDeform
 
 	template<typename T>
 	vector<Point_2> Object2Screen(vector<T> bundleHull);
+	VECTOR2 Object2Screen(VECTOR4 point);
 	//void DecideConvex2D(vector<Point_2> convexHull2D, vector<Point_2> bundleProj);
 	//vector<VECTOR2> GenSmoothHull(vector<Point_2> convexHull2D);
 	//void GenFocusPointSet();
@@ -347,16 +350,17 @@ class StreamDeform
 	//float _lensEllipseRatio;
 	//float _lensEllipseAngle;
 	ellipse _ellLens;
-	float _lensDepth_clip;
+	//float _lensDepth_clip;
 	//VECTOR2 _lens_center_screen;
 	bool _onEllipseEndPt;
 	bool _onLongAxisEndPt;
 
 	float* _pfMin;
 	float* _pfMax;
-	VECTOR4 _dataCenterObject;
+	VECTOR4 _lensCenterObject;
 
-
+	bool _deformOn;	//turn on/off deformation
+	bool _autoDeformMode;
 
 	void ClusterStreamByBoundingBox(vector<int> streamIndices, vector<vector<int>> &streamGroups);
 	vector<vector<VECTOR4>> Groups2Hull(vector<vector<int>> streamGroups);
@@ -371,6 +375,7 @@ class StreamDeform
 	void UpdateVertexLineIndexForCut();
 
 	//void CutStreamByCurve();
+
 public:
 	StreamDeform(void);
 	~StreamDeform(void);
@@ -424,6 +429,8 @@ public:
 	void SetWinSize(int _winWidth, int _winHeight);
 	void GenHullEllipse();
 	void SetDomain(float pfMin[4], float pfMax[4]);
+	void SetDeformOn(bool b);
+	void SetAutoDeformMode(bool b);
 
 	void UpdateVertexLineIndex();
 	//void UpdateBundle();
@@ -471,6 +478,10 @@ public:
 	void ProcessCut();
 	void RestoreAllStream();
 	void ProcessAllStream();
+	void GetModelViewMatrix(float matrix[16]);
+	void GetProjectionMatrix(float matrix[16]);
 	//void SetCutLine(VECTOR2 startPoint, VECTOR2 endPoint);
+	void FinishDrag();
+	void UpdateLensScreen();
 };
 
