@@ -215,3 +215,4 @@ Revision 1.1.1.1  2010/04/12 21:31:38  leeten
 
 
 */
+#define REFRESH_DELAY	  16.7 //ms

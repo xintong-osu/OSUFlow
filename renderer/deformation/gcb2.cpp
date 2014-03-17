@@ -795,7 +795,7 @@ gcbInit(void (*_InitFunc)(), void (*_QuitFunc)())
 	glutMotionFunc(_MotionCB);
 	glutMouseFunc(_MouseCB);
 	glutIdleFunc(_IdleCB);
-	glutTimerFunc(10, _TimerCB, 0);
+	glutTimerFunc(REFRESH_DELAY, _TimerCB, 0);
 
 	//ADD-BY-TONG 02/25/2013-BEGIN
 	glutPassiveMotionFunc(_PassiveMotionCB);

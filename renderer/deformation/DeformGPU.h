@@ -81,7 +81,7 @@ void SetLens(VECTOR4* lensCenterObject);
 
 void SetDeformOnPara(bool *deformOn);
 
-void launch_kernel();
+void launch_kernel(clock_t t0);
 
 void LensTouchLine();
 
@@ -169,6 +169,13 @@ inline void PrintMatrix(T m[16])
 		<<m[1]<<","<<m[5]<<","<<m[9]<<","<<m[13]<<endl
 		<<m[2]<<","<<m[6]<<","<<m[10]<<","<<m[14]<<endl
 		<<m[3]<<","<<m[7]<<","<<m[11]<<","<<m[15]<<endl;
+}
+
+inline void PrintElapsedTime(clock_t t0, char* msg)
+{
+    clock_t t = clock();
+    clock_t compute_time = (t - t0) * 1000 / CLOCKS_PER_SEC;
+    printf("%f\tms to %s\n", (double)compute_time , msg);
 }
 
 #endif

@@ -20,7 +20,6 @@ int currentTime;
 int previousTime;
 float fps;
 //#include <GL\glew.h>
-#define REFRESH_DELAY	  10 //ms
 //ADD-BY-TONG 02/15/2013-END
 
 
@@ -91,7 +90,7 @@ void calculateFPS()
 
     if(timeInterval > 1000)
     {
-		if(frameCount < 1000)		//otherwise the "frameCount" can get really big
+		//if(frameCount < 1000)		//otherwise the "frameCount" can get really big
 		{
 			//  calculate the number of frames per second
 			fps = frameCount / (timeInterval / 1000.0f);
@@ -257,6 +256,7 @@ _KeyboardFunc(unsigned char ubKey, int iX, int iY)
 //ADD-BY-TONG 02/27/2013-BEGIN
 //	GLenum eModifier = glutGetModifiers();
 //ADD-BY-TONG 02/27/2013-END
+	DIRECTION dir;
 
 	switch(ubKey)
 	{
@@ -315,6 +315,37 @@ _KeyboardFunc(unsigned char ubKey, int iX, int iY)
 		cLineRenderer.getDeformLine()->ChangeLensAngle(-1);
 		glutPostRedisplay();
 		break;
+	case 'a':
+		dir = DIRECTION::DIR_LEFT;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		glutPostRedisplay();
+		break;
+	case 'd':
+		dir = DIRECTION::DIR_RIGHT;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		glutPostRedisplay();
+		break;
+	case 'w':
+		dir = DIRECTION::DIR_UP;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		glutPostRedisplay();
+		break;
+	case 's':
+		dir = DIRECTION::DIR_DOWN;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		glutPostRedisplay();
+		break;
+	case 'q':
+		dir = DIRECTION::DIR_IN;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		glutPostRedisplay();
+		break;
+	case 'e':
+		dir = DIRECTION::DIR_OUT;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		glutPostRedisplay();
+		break;
+
 	//case '[':
 	//	cLineRenderer.getDeformLine()->ChangeLensRatio(1);
 	//	glutPostRedisplay();
@@ -522,7 +553,7 @@ _DisplayFunc()
 
 	// render the scene
     draw_streamlines(); 
-	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
 	drawFPS();
 
 	// NOTE: Call glutSwapBuffers() at the end of your display function

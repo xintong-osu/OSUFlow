@@ -15,7 +15,7 @@ May, 2010
 //#include "ControlPanel.h"
 
 #define DEFORM 1
-#define TEST_PERFORMANCE_GL 0
+#define TEST_PERFORMANCE 5
 //static ControlPanel* _CtrlPnl;
 clock_t t_last;
 //#define FILENAME_GRAPH "D:\\data\\isabel\\UVWf01_step500_seed500_seg_graph.txt"
@@ -525,7 +525,6 @@ CLineRendererInOpenGLDeform::_Draw()
 	if( 0 == uLid )
 		return;
 	
-	t_last = clock();
 
 	glClearColor(1.0,1.0,1.0,1.0);
 	glClearDepth(1.0);
@@ -560,15 +559,10 @@ CLineRendererInOpenGLDeform::_Draw()
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-#if TEST_PERFORMANCE_GL
-	TestPerf("matrix transformation");
-#endif
 
 	_deformLine.RunCuda();
 
-#if TEST_PERFORMANCE_GL
-	TestPerf("CUDA computing");
-#endif
+	clock_t t0 = clock();
 
 	glUseProgram(line_programID);
 
@@ -615,14 +609,18 @@ CLineRendererInOpenGLDeform::_Draw()
 
 	glLineWidth(cLine.fWidth);
 	
-
-	
 	for(int il = 0; il < streamLengthsRender.size(); il++)
 	{
 		glUniform4f(g_loc_color, 0.5f, 0.5f, 0.5f, 1.0f);
 		glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[0] + streamOffsetsRender[il], 
 			streamLengthsRender[il]);
 	}
+
+
+
+	//draw other features 
+	//draw lens center
+	glUseProgram(0);
 
 	if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LOCATION)
 	{
@@ -632,9 +630,6 @@ CLineRendererInOpenGLDeform::_Draw()
 		Draw3DCube(cubeMin, cubeMax);
 	}
 
-	//draw other features 
-	//draw lens center
-	glUseProgram(0);
 	if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LENS)
 	{
 		glColor4f(0.0f, 1.0f, 0.145f, 0.5f);
@@ -701,8 +696,8 @@ CLineRendererInOpenGLDeform::_Draw()
     glPopMatrix();
 
     SDK_CHECK_ERROR_GL();
-#if TEST_PERFORMANCE_GL
-	TestPerf("rendering");
+#if (TEST_PERFORMANCE == 5)
+	PrintElapsedTime(t0, "rendering");
 #endif
 }
 

@@ -34,6 +34,7 @@ static char* FILENAME_DIST = "deform_data\\plume\\15plume3d421_seg.dist";
 
 #define SAMPLE_NUM 200
 #define SAMPLE_RATE 5
+#define TEST_PERFORMANCE 5
 
 template <typename T>
 inline bool invertMatrix(T m[16], T invOut[16])
@@ -734,14 +735,17 @@ float StreamDeform::Object2ScreenLength(float length_object, VECTOR4 center_obje
 
 void StreamDeform::RunCuda()
 {
-#if TEST_PERFORMANCE
-	clock_t t0 = clock();
+	clock_t t0;
+#if (TEST_PERFORMANCE == 2)
+	t0 = clock();
 #endif
-
+	if(_sourceMode == SOURCE_MODE::MODE_BUNDLE || _sourceMode == SOURCE_MODE::MODE_LOCATION)
+		GenHullEllipse();
+	
 	//for single bundle, automatically decide the deformation mode
+	//if((_sourceMode == SOURCE_MODE::MODE_BUNDLE || _sourceMode == SOURCE_MODE::MODE_LOCATION) && _autoDeformMode)// || _sourceMode == SOURCE_MODE::MODE_DYNAMIC_TRACE)
 	if(_sourceMode == SOURCE_MODE::MODE_BUNDLE && _autoDeformMode)// || _sourceMode == SOURCE_MODE::MODE_DYNAMIC_TRACE)
 	{
-		GenHullEllipse();
 		if(_focusEllipseSet.size() == 1)
 		{
 			ellipse ell = _focusEllipseSet.front();
@@ -778,11 +782,11 @@ void StreamDeform::RunCuda()
 
 	check_cuda_errors(__FILE__, __LINE__);
 
-#if TEST_PERFORMANCE
-	clock_t t1 = clock();
-	unsigned long compute_time = (t1 - t0) * 1000 / CLOCKS_PER_SEC;
-	cout<<"Map cuda resource time:"<< (float)compute_time * 0.001 << "sec" << endl;
-#endif
+//#if TEST_PERFORMANCE
+//	clock_t t1 = clock();
+//	unsigned long compute_time = (t1 - t0) * 1000 / CLOCKS_PER_SEC;
+//	cout<<"Map cuda resource time:"<< (float)compute_time * 0.001 << "sec" << endl;
+//#endif
 
 	//set matrix and window size
 	SetDeformWinSize(winWidth, winHeight);//can be moved to somewhere else
@@ -797,42 +801,21 @@ void StreamDeform::RunCuda()
 
 	SetMatrix(tModelViewMatrixf, tProjectionMatrixf, _invModelViewMatrixf, _invProjectionMatrixf);
 
-	//if(SOURCE_MODE::MODE_LENS == _sourceMode)
-	//{
-	//	VECTOR4 center_object(_lens_center[0], _lens_center[1], _lens_center[2], 1);
-
-	//	//http://stackoverflow.com/questions/3717226/radius-of-projected-sphere
-	//	VECTOR4 lens_center_camera = Object2Camera(center_object, tModelViewMatrixf);
-	//	VECTOR4 lens_center_clip = Camera2Clip(lens_center_camera, tProjectionMatrixf);
-	//	_lens_center_screen = Clip2Screen(GetXY(lens_center_clip), winWidth, winHeight);
-
-	//	float lens_radius_screen = Object2ScreenLength(_lens_radius, _lens_center);
-	//	//ellipse lensEllipse(_lens_center_screen[0], _lens_center_screen[1], lens_radius_screen * _lensEllipseRatio, lens_radius_screen , _lensEllipseAngle);
-	//	_lensDepth_clip = lens_center_clip[2];
-	//	//_focusEllipseSet.clear();
-	//	//_focusEllipseSet.push_back(lensEllipse);
-	//}
-
 	//SetEllipse(&_focusEllipseSet);
 	SetHull(&_focusHullSet);
 	SetVBOData(_d_raw_clip, d_raw_tangent);
 
 	if(_vertexCount > 0)
-		launch_kernel();
-	check_cuda_errors(__FILE__, __LINE__);
+		launch_kernel(t0);
 
-#if TEST_PERFORMANCE
-	clock_t t2 = clock();
-	compute_time = (t2 - t1) * 1000 / CLOCKS_PER_SEC;
-	cout<<"kernel time:"<< (float)compute_time * 0.001 << "sec" << endl;
+#if (TEST_PERFORMANCE == 4)
+	t0 = clock();
 #endif
     // unmap buffer object
     checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_vbo_clip_resource, 0));
     checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_vbo_tangent_resource, 0));
-#if TEST_PERFORMANCE
-	clock_t t3 = clock();
-	compute_time = (t3 - t2) * 1000 / CLOCKS_PER_SEC;
-	cout<<"Unmap cuda resource time:"<< (float)compute_time * 0.001 << "sec" << endl;
+#if (TEST_PERFORMANCE == 4)
+	PrintElapsedTime(t0, "Unmap cuda resource time");
 #endif
 }
 
@@ -891,6 +874,12 @@ void StreamDeform::ProcessAllStream()
 	else if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
 	{
 		BuildLineGroups();
+		if(_deformMode == DEFORM_MODE::MODE_LINE)
+			ProcessCut();
+	}
+	else if(SOURCE_MODE::MODE_LOCATION == _sourceMode)
+	{
+		PickStreamByBlock();
 		if(_deformMode == DEFORM_MODE::MODE_LINE)
 			ProcessCut();
 	}
@@ -1362,11 +1351,15 @@ void StreamDeform::setData(float *pfCoords, int size, vector<int> pviGlPrimitive
 
 void StreamDeform::SetDomain(float pfMin[4], float pfMax[4])
 {
-	_pfMin = pfMin;
-	_pfMax = pfMax;
+	for(int i = 0; i < 4; i++)	{
+		_pfMin[i] = pfMin[i];
+		_pfMax[i] = pfMax[i];
+	}
 	float volumeSize[4];
 	_pickBlockStart = VECTOR3((pfMin[0] + pfMax[0]) * 0.5, (pfMin[1] + pfMax[1]) * 0.5, (pfMin[2] + pfMax[2]) * 0.5);
-	_pickBlockSize = VECTOR3(30, 30, 30);
+	float size = ((pfMax[0] - pfMin[0]) + (pfMax[1] - pfMin[1]) + (pfMax[2] - pfMin[2])) * 0.02;
+	_pickBlockSize = VECTOR3(size, size, size);
+	_pickBlockMoveStep = size;
 
 	//VECTOR4 dataCenterObject, dataCenterClip;
 	//_lens_radius = _biggestSize * 0.1;
@@ -1456,26 +1449,58 @@ void StreamDeform::MovePickBlock(DIRECTION dir)
 	{
 	case DIRECTION::DIR_LEFT:
 		_pickBlockStart[0] -= _pickBlockMoveStep;
+		if(_pickBlockStart[0] < _pfMin[0])
+		{
+			_pickBlockStart[0] += _pickBlockMoveStep;
+			return;
+		}
 		break;
 	case DIRECTION::DIR_RIGHT:
 		_pickBlockStart[0] += _pickBlockMoveStep;
+		if(_pickBlockStart[0] > (_pfMax[0] - _pickBlockSize[0]))
+		{
+			_pickBlockStart[0] -= _pickBlockMoveStep;
+			return;
+		}
 		break;
 	case DIRECTION::DIR_DOWN:
 		_pickBlockStart[1] -= _pickBlockMoveStep;
+		if(_pickBlockStart[1] < _pfMin[1])
+		{
+			_pickBlockStart[1] += _pickBlockMoveStep;
+			return;
+		}
 		break;
 	case DIRECTION::DIR_UP:
 		_pickBlockStart[1] += _pickBlockMoveStep;
+		if(_pickBlockStart[1] > (_pfMax[1] - _pickBlockSize[1]))
+		{
+			_pickBlockStart[1] -= _pickBlockMoveStep;
+			return;
+		}
 		break;
 	case DIRECTION::DIR_IN:
 		_pickBlockStart[2] -= _pickBlockMoveStep;
+		if(_pickBlockStart[2] < _pfMin[2])
+		{
+			_pickBlockStart[2] += _pickBlockMoveStep;
+			return;
+		}
 		break;
 	case DIRECTION::DIR_OUT:
 		_pickBlockStart[2] += _pickBlockMoveStep;
+		if(_pickBlockStart[2] > (_pfMax[2] - _pickBlockSize[2]))
+		{
+			_pickBlockStart[2] -= _pickBlockMoveStep;
+			return;
+		}
 		break;
 	}
+
 		//cout<<"dir:"<<dir<<endl;
 	//GenStreamByBlock();
-	PickStreamByBlock();
+	RestoreAllStream();
+	ProcessAllStream();
 }
 
 int* StreamDeform::GetStreamBundleIndex()

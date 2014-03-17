@@ -13,7 +13,7 @@
 #include "DeformGPU.h"
 //#include "StreamDeform.h"
 
-#define TEST_PERFORMANCE 0
+#define TEST_PERFORMANCE 5
 
 //set it large to avoid flashing in the end of deformation
 //if it is too large, the points may not recover when out of target region
@@ -592,76 +592,72 @@ void LensTouchLine()
 }
 
 // Wrapper for the __global__ call that sets up the kernel call
-void launch_kernel()//, unsigned int mesh_width, unsigned int mesh_height, float time)
+void launch_kernel(clock_t t0)//, unsigned int mesh_width, unsigned int mesh_height, float time)
 {
-#if TEST_PERFORMANCE
-	clock_t t0 = clock();
+//	clock_t t0;
+#if (TEST_PERFORMANCE == 2)
+//	t0 = clock();
 #endif
 	_d_vec_prePos = _d_vec_pos;
 	float4* d_raw_ptr_pos = thrust::raw_pointer_cast(_d_vec_pos.data());
-#if TEST_PERFORMANCE
-	clock_t t1 = clock();
-	unsigned long compute_time = (t1 - t0) * 1000 / CLOCKS_PER_SEC;
-	std::cout<<"copy memory time:"<< (float)compute_time * 0.001 << "sec" << std::endl;
-#endif
+
     // execute the kernel
     dim3 block(256, 1, 1);
     dim3 grid(ceil((float)_nv / block.x), 1, 1);
 
-	//cout<<"...1"<<endl;
-	//normal of the streamlines
-	//kernel_computeNormal<<< grid, block>>>(d_raw_ptr_pos,_d_raw_tangent, thrust::raw_pointer_cast(_d_vec_lineIndex.data()));//, nv);
 	thrust::for_each(
 		thrust::make_zip_iterator(thrust::make_tuple(counting_zero, _d_ptr_tangent)),
 		thrust::make_zip_iterator(thrust::make_tuple(counting_zero + _nv, _d_ptr_tangent + _nv)),
 		functor_computeNormal(thrust::raw_pointer_cast(_d_vec_lineIndex.data()), d_raw_ptr_pos));
-	//cout<<"...2"<<endl;
 
 	//clip coordiates of streamlines
 	thrust::transform(_d_vec_pos.begin(), _d_vec_pos.end(), _d_ptr_posClip, functor_Object2Clip());
 	thrust::transform(_d_ptr_posClip, _d_ptr_posClip + _nv, d_vec_posScreen.begin(), functor_Clip2Screen());
 
-#if TEST_PERFORMANCE
-	clock_t t2 = clock();
-	compute_time = (t2 - t1) * 1000 / CLOCKS_PER_SEC;
-	std::cout<<"transform coordinates:"<< (float)compute_time * 0.001 << "sec" << std::endl;
-#endif	
-	//cout<<"...3"<<endl;
 	if(0 == _h_vec_ellipseSet->size() )
 		return;
 
-	////*****lens mode
-	//if(SOURCE_MODE::MODE_LENS == *_sourceMode)
-	//{
-
-	//}
-
-	check_cuda_errors(__FILE__, __LINE__);
-	//cout<<"execute kernel_convex..."<<endl;
-	/*cout<<"d_vec_ellipseSet.data()"<<d_vec_ellipseSet.size()<<endl;
-	cout<<"_nv:"<<_nv<<endl;*/
 	thrust::device_vector<ellipse> d_vec_ellipseSet = *_h_vec_ellipseSet;
-
+#if (TEST_PERFORMANCE == 2)
+	PrintElapsedTime(t0, "prepare data(before deformation kernel)");
+#endif	
 	if(*_deformOn)
 	{
-		kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
-				thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
-				thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
-				_nv,
-				thrust::raw_pointer_cast(d_vec_ellipseSet.data()), 
-				thrust::raw_pointer_cast(d_vec_hullSet.data()), 
-				_h_vec_ellipseSet->size(),
-				*_deformMode,
-				_para);
+#if (TEST_PERFORMANCE == 3)
+	    cudaEvent_t start, stop;
+		float time;
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+		cudaEventRecord(start, 0);
+#endif
+
+   		kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
+					thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
+					thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
+					_nv,
+					thrust::raw_pointer_cast(d_vec_ellipseSet.data()), 
+					thrust::raw_pointer_cast(d_vec_hullSet.data()), 
+					_h_vec_ellipseSet->size(),
+					*_deformMode,
+					_para);
+		
+#if (TEST_PERFORMANCE == 3)
+		cudaEventRecord(stop, 0);
+		cudaEventSynchronize(stop);
+
+		cudaEventElapsedTime(&time, start, stop);
+		printf("%f\tms to %s\n", time, "run deformation kernel");
+#endif
 		check_cuda_errors(__FILE__, __LINE__);
 	}
 
 
-#if TEST_PERFORMANCE
-	clock_t t3 = clock();
-	compute_time = (t3 - t2) * 1000 / CLOCKS_PER_SEC;
-	std::cout<<"only kernel time:"<< (float)compute_time * 0.001 << "sec" << std::endl;
-#endif
+//#if (TEST_PERFORMANCE == 5)
+//	clock_t t3 = clock();
+//	compute_time = (t3 - t2) * 1000 / CLOCKS_PER_SEC;
+////	std::cout<<"only kernel time:"<< (float)compute_time * 0.001 << "sec" << std::endl;
+//#endif
 }
 
 struct functor_GetLineIndexInRange 
@@ -693,8 +689,8 @@ struct functor_GetLineIndexInRange
 
 vector<int> PickStreamByBlockCUDA(float min[3], float max[3])
 {
-	cout<<"min:"<<min[0]<<","<<min[1]<<","<<min[2]<<endl;
-	cout<<"max:"<<max[0]<<","<<max[1]<<","<<max[2]<<endl;
+	//cout<<"min:"<<min[0]<<","<<min[1]<<","<<min[2]<<endl;
+	//cout<<"max:"<<max[0]<<","<<max[1]<<","<<max[2]<<endl;
 	vector<int> picked;
 	thrust::device_vector<int> result(_nv, -1);
 	//cout<<"**1"<<endl;
@@ -713,13 +709,13 @@ vector<int> PickStreamByBlockCUDA(float min[3], float max[3])
 	thrust::host_vector<int> h_result(result.begin(), newEnd);
 	//cout<<"**4"<<endl;
 	//thrust::copy(h_result.begin(), h_result.end(), picked.begin());
-	cout<<"picked lines:";
+	//cout<<"picked lines:";
 	for(int i = 0; i < h_result.size(); i++)
 	{
 		picked.push_back(h_result[i]);
-		cout<<h_result[i]<<",";
+		//cout<<h_result[i]<<",";
 	}
-	cout<<endl;
+	//cout<<endl;
 	//cout<<"**5"<<endl;
 	return picked;
 }

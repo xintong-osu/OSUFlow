@@ -355,8 +355,8 @@ class StreamDeform
 	bool _onEllipseEndPt;
 	bool _onLongAxisEndPt;
 
-	float* _pfMin;
-	float* _pfMax;
+	float _pfMin[4];
+	float _pfMax[4];
 	VECTOR4 _lensCenterObject;
 
 	bool _deformOn;	//turn on/off deformation
