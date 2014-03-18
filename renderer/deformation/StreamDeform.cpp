@@ -34,7 +34,6 @@ static char* FILENAME_DIST = "deform_data\\plume\\15plume3d421_seg.dist";
 
 #define SAMPLE_NUM 200
 #define SAMPLE_RATE 5
-#define TEST_PERFORMANCE 5
 
 template <typename T>
 inline bool invertMatrix(T m[16], T invOut[16])
@@ -351,7 +350,7 @@ void StreamDeform::RedoDeformation()
 
 void StreamDeform::FinishDrag()
 {
-	if(_deformMode == DEFORM_MODE::MODE_LINE)
+	//if(_deformMode == DEFORM_MODE::MODE_LINE)
 		RedoDeformation();
 }
 
@@ -376,11 +375,15 @@ void StreamDeform::bundling(int n)
 	//_bundle._SetData(_primitiveBases, _primitiveLengths);
 	//_bundle.HierarchicalClustering();
 	//_bundle._SaveBundleFile(FILENAME_BUNDLE);
+	clock_t t0 = clock();
 	_bundle = new bundle();
 	_bundle->getDist(FILENAME_DIST);
 	//_bundle->getDist(filename_emd_dist);
 	_bundle->clustering();
 	_bundle->getClusters(n);
+#if (TEST_PERFORMANCE == 6)
+	PrintElapsedTime(t0, "Clustering");
+#endif
 	loadBundle(_bundle->getClusterId(), n);
 
 	GenBundleColor();
@@ -577,7 +580,7 @@ void StreamDeform::MoveLensCenterOnScreen(float dx, float dy)
 
 	_lensCenterObject = Clip2Object(lensCenterClipNew, _invModelViewMatrixf, _invProjectionMatrixf);
 
-	LensTouchLine();
+	//ProcessAllStream();
 }
 
 void StreamDeform::UpdateLensScreen()
@@ -605,27 +608,13 @@ void StreamDeform::MoveLensEndPtOnScreen(float x, float y)
 	}
 	else
 	{
-		//!!!!!!!!!!!!!!this radius is in object space, we should use the radius in screen space!
-		//VECTOR4 s_object = center_object + VECTOR4(_lens_radius, 0, 0, 0);//an arbitrary point on sphere
-		//VECTOR4 s_camera = Object2Camera(s_object, tModelViewMatrixf);
-		//float dist_camera = (s_camera - lens_center_camera).GetMag(); 
-		//VECTOR4 s1_camera =lens_center_camera +  VECTOR4(dist_camera, 0, 0, 0);
-		//VECTOR2 s1_screen = Clip2Screen(GetXY(Camera2Clip(s1_camera, tProjectionMatrixf)), winWidth, winHeight);
-		//float lens_radius_screen = (s1_screen - _lens_center_screen).GetMag();
-		//
-	//	float lens_radius_screen = (VECTOR2(x, y) - _lens_center_screen).GetMag();
-		//cout<<"lens_radius_screen :"<<lens_radius_screen <<endl;
 		_focusEllipseSet.front().b = length;
-
-		//float a = 
-		//cout<<"_lens_radius :"<<_lens_radius <<endl;
 		angle += (M_PI * 0.5);
 	}
 	if(angle < 0)
 		angle += M_PI;
-	//_lensEllipseAngle = angle;
 	_focusEllipseSet.front().angle = angle ;
-	LensTouchLine();
+	//ProcessAllStream();
 }
 
 //void StreamDeform::ChangeLensOnScreen(float x, float y)
@@ -865,6 +854,7 @@ void StreamDeform::resetOrigPos()
 
 void StreamDeform::ProcessAllStream()
 {
+	clock_t t0 = clock();
 	if(SOURCE_MODE::MODE_LENS == _sourceMode)
 	{
 		LensTouchLine();
@@ -883,6 +873,9 @@ void StreamDeform::ProcessAllStream()
 		if(_deformMode == DEFORM_MODE::MODE_LINE)
 			ProcessCut();
 	}
+#if (TEST_PERFORMANCE == 1)
+	PrintElapsedTime(t0, "Process streamlines");
+#endif
 }
 
 std::vector<hull_type>* StreamDeform::GetHull()

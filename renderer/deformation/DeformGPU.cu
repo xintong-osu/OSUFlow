@@ -13,7 +13,6 @@
 #include "DeformGPU.h"
 //#include "StreamDeform.h"
 
-#define TEST_PERFORMANCE 5
 
 //set it large to avoid flashing in the end of deformation
 //if it is too large, the points may not recover when out of target region
@@ -651,13 +650,6 @@ void launch_kernel(clock_t t0)//, unsigned int mesh_width, unsigned int mesh_hei
 #endif
 		check_cuda_errors(__FILE__, __LINE__);
 	}
-
-
-//#if (TEST_PERFORMANCE == 5)
-//	clock_t t3 = clock();
-//	compute_time = (t3 - t2) * 1000 / CLOCKS_PER_SEC;
-////	std::cout<<"only kernel time:"<< (float)compute_time * 0.001 << "sec" << std::endl;
-//#endif
 }
 
 struct functor_GetLineIndexInRange 

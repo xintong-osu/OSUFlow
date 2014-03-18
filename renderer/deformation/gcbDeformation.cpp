@@ -404,7 +404,7 @@ void _MouseFunc(int button, int state, int x, int y)
 				_dragLens = false;
 				_dragLensEndPt = false;
 				cLineRenderer.SetDeformOn(true);
-				cLineRenderer.getDeformLine()->FinishDrag();
+				cLineRenderer.getDeformLine()->RedoDeformation();
 			}
 		}
 		//	//cLineRenderer.setDragging(true);
@@ -428,7 +428,9 @@ void _MouseFunc(int button, int state, int x, int y)
 //ADD-BY-TONG 03/04/2013-BEGIN
 void _IdleFunc()
 {
+	//cLineRenderer.getDeformLine()->RunCuda();
 	calculateFPS();
+
 }
 
 void _TimerFunc(int value)

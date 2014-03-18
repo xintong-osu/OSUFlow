@@ -15,7 +15,6 @@ May, 2010
 //#include "ControlPanel.h"
 
 #define DEFORM 1
-#define TEST_PERFORMANCE 5
 //static ControlPanel* _CtrlPnl;
 clock_t t_last;
 //#define FILENAME_GRAPH "D:\\data\\isabel\\UVWf01_step500_seed500_seg_graph.txt"

@@ -9,6 +9,7 @@
 #include <VectorMatrix.h>
 
 #define HULL_SIZE 128
+#define TEST_PERFORMANCE -1
 //#define MAX_HULL_POINT_NUM 128
 
 struct ellipse{
