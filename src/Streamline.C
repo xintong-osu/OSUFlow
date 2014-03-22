@@ -131,31 +131,38 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 		vtParticleInfo* thisSeed = *sIter;
 		if(thisSeed->itsValidFlag == 1)			// valid seed
 		{
+			vtListSeedTrace* backTrace;
+			vtListSeedTrace* forwardTrace;
 			if(m_itsTraceDir & BACKWARD_DIR)
 			{
-				vtListSeedTrace* backTrace;
 				backTrace = new vtListSeedTrace;
 				computeFieldLine(BACKWARD,m_integrationOrder, STEADY, 
 				                 *backTrace, thisSeed->m_pointInfo);
-				//ADD-TONG-BEGIN
-				backTrace->reverse();
-				//remove the seed, which is repeated from the first element in 'forward trace'
-				backTrace->pop_back();
-				//ADD-TONG-END
-				listSeedTraces.push_back(backTrace);
 				if (listSeedIds != NULL)
 					(*listSeedIds).push_back(*sIdIter);
 			}
 			if(m_itsTraceDir & FORWARD_DIR)
 			{
-				vtListSeedTrace* forwardTrace;
 				forwardTrace = new vtListSeedTrace;
 				computeFieldLine(FORWARD, m_integrationOrder, STEADY,
 								 *forwardTrace, thisSeed->m_pointInfo);
-				listSeedTraces.push_back(forwardTrace);
 				if (listSeedIds != NULL)
 					(*listSeedIds).push_back(*sIdIter);
 			}
+			//ADD-TONG-BEGIN
+			if(m_itsTraceDir == BACKWARD_DIR)
+				listSeedTraces.push_back(backTrace);
+			else if(m_itsTraceDir == FORWARD_DIR)
+				listSeedTraces.push_back(forwardTrace);
+			else if(m_itsTraceDir == BACKWARD_AND_FORWARD)
+			{
+				backTrace->reverse();
+				//remove the seed, which is repeated from the first element in 'forward trace'
+				backTrace->pop_back();
+				backTrace->insert(backTrace->end(), forwardTrace->begin(),forwardTrace->end());
+				listSeedTraces.push_back(backTrace);
+			}
+			//ADD-TONG-END
 		}
 		if( !m_lSeedIds.empty() ) 
 			sIdIter++;
