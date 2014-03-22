@@ -16,21 +16,7 @@
 
 
 #define NUM_BUNDLE 36
-//#define FILENAME_BUNDLE "D:/Dropbox/streamline/interactive_osuflow/build/renderer/examples/Release/data/15plume3d440_seed300_len500_norm.bdl"
-//#define FILENAME_BUNDLE "data/15plume3d440_seed300_len500_norm.bdl"
-//#define FILENAME_BUNDLE "data/15plume3d440_seed500_len100_norm.bdl"
-//#define FILENAME_BUNDLE "data/15plume3d440_seed500_len250_norm.bdl"
-//#define FILENAME_DIST "D:\\Dropbox\\streamline\\interactive_osuflow\\build\\renderer\\examples\\Release\\data\\15plume3d440_seed500_len250_norm_haus.dist"
-//#define FILENAME_DIST "D:\\Dropbox\\streamline\\interactive_osuflow\\build\\renderer\\examples\\Release\\data\\15plume3d440_seed500_len250_norm_curvature_torsion.dist"
-//#define FILENAME_DIST "D:\\data\\plume\\15plume3d440_seed200_len200_fix_seg.dist"
-//#define FILENAME_DIST "D:\\data\\isabel\\UVWf01_step500_seed500_seg.dist"
-#if 0
-static char* FILENAME_DIST = "data\\UVWf01_step500_seed500_seg.dist";
-#elif 0
-static char* FILENAME_DIST = "D:\\data\\nek\\nek.d_2_seg_emd.dist";
-#else
-static char* FILENAME_DIST = "deform_data\\plume\\15plume3d421_seg.dist";
-#endif
+
 
 #define SAMPLE_NUM 200
 #define SAMPLE_RATE 5
@@ -274,6 +260,11 @@ void StreamDeform::setMatrix(GLdouble *ModelViewMatrix, GLdouble *ProjectionMatr
 	_Viewport = Viewport;
 }
 
+void StreamDeform::SetDistFileName(char* arg)
+{
+	_filename_dist = arg;
+}
+
 void StreamDeform::GenBundleColor()
 {
 	for(int i = 0; i < _streamBundles.size(); i++)
@@ -377,7 +368,7 @@ void StreamDeform::bundling(int n)
 	//_bundle._SaveBundleFile(FILENAME_BUNDLE);
 	clock_t t0 = clock();
 	_bundle = new bundle();
-	_bundle->getDist(FILENAME_DIST);
+	_bundle->getDist(_filename_dist);
 	//_bundle->getDist(filename_emd_dist);
 	_bundle->clustering();
 	_bundle->getClusters(n);
@@ -388,6 +379,7 @@ void StreamDeform::bundling(int n)
 
 	GenBundleColor();
 }
+
 
 //called by the rendering program
 void StreamDeform::Init()
@@ -735,6 +727,9 @@ void StreamDeform::RunCuda()
 	//if((_sourceMode == SOURCE_MODE::MODE_BUNDLE || _sourceMode == SOURCE_MODE::MODE_LOCATION) && _autoDeformMode)// || _sourceMode == SOURCE_MODE::MODE_DYNAMIC_TRACE)
 	if(_sourceMode == SOURCE_MODE::MODE_BUNDLE && _autoDeformMode)// || _sourceMode == SOURCE_MODE::MODE_DYNAMIC_TRACE)
 	{
+		//need to change!!!!!
+		if(_sourceMode == SOURCE_MODE::MODE_LOCATION)
+			return;
 		if(_focusEllipseSet.size() == 1)
 		{
 			ellipse ell = _focusEllipseSet.front();
@@ -797,15 +792,15 @@ void StreamDeform::RunCuda()
 	if(_vertexCount > 0)
 		launch_kernel(t0);
 
-#if (TEST_PERFORMANCE == 4)
-	t0 = clock();
-#endif
+//#if (TEST_PERFORMANCE == 4)
+//	t0 = clock();
+//#endif
     // unmap buffer object
     checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_vbo_clip_resource, 0));
     checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_vbo_tangent_resource, 0));
-#if (TEST_PERFORMANCE == 4)
-	PrintElapsedTime(t0, "Unmap cuda resource time");
-#endif
+//#if (TEST_PERFORMANCE == 4)
+//	PrintElapsedTime(t0, "Unmap cuda resource time");
+//#endif
 }
 
 void StreamDeform::LineLensProcess()
@@ -854,27 +849,34 @@ void StreamDeform::resetOrigPos()
 
 void StreamDeform::ProcessAllStream()
 {
+#if (TEST_PERFORMANCE == 1)
 	clock_t t0 = clock();
+#endif
 	if(SOURCE_MODE::MODE_LENS == _sourceMode)
-	{
 		LensTouchLine();
-		if(_deformMode == DEFORM_MODE::MODE_LINE)
-			LineLensProcess();
-	}
 	else if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
-	{
 		BuildLineGroups();
-		if(_deformMode == DEFORM_MODE::MODE_LINE)
-			ProcessCut();
-	}
 	else if(SOURCE_MODE::MODE_LOCATION == _sourceMode)
-	{
 		PickStreamByBlock();
-		if(_deformMode == DEFORM_MODE::MODE_LINE)
-			ProcessCut();
-	}
+
 #if (TEST_PERFORMANCE == 1)
 	PrintElapsedTime(t0, "Process streamlines");
+#endif
+
+#if (TEST_PERFORMANCE == 4)
+	clock_t t0 = clock();
+#endif
+	if(_deformMode == DEFORM_MODE::MODE_LINE)
+	{	
+		if(SOURCE_MODE::MODE_LENS == _sourceMode)
+			LineLensProcess();
+		else if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
+			ProcessCut();
+		else if(SOURCE_MODE::MODE_LOCATION == _sourceMode)
+			LineLensProcess();
+	}
+#if (TEST_PERFORMANCE == 4)
+	PrintElapsedTime(t0, "cut");
 #endif
 }
 
@@ -1324,6 +1326,9 @@ void StreamDeform::setData(float *pfCoords, int size, vector<int> pviGlPrimitive
 	_primitiveLengthsOrig = _primitiveLengths;
 
 	_vertexCount = size;
+
+	cout<<"Total number of vertices:"<<_vertexCount <<endl;
+	cout<<"Total number of streamlines:"<<pviGlPrimitiveBases.size()<<endl;
 
 	//keep a copy of the coordinates of the vertices in order to be able to restore them
 	if(_VertexCopy != NULL)

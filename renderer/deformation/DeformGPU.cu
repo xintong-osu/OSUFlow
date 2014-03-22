@@ -415,7 +415,7 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 			if(i != 0 && i != (_nv - 1))
 			{
 				if((lineIndex[i] == lineIndex[i + 1]) && (lineIndex[i] == lineIndex[i - 1])) //if it is not the first vertex or last vertex on the line
-				{		
+				{
 					float2 pre_v1_screen = Object2Screen(prevPos[i + 1]);//projection * modelview * v;
 					float2 pre_v_1_screen = Object2Screen(prevPos[i - 1]);//projection * modelview * v;
 					float2 edge_v1 = pre_v1_screen - v_screen;
@@ -424,10 +424,10 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 					float edgeLength_v_1 = length(edge_v_1);
 					// if the parameter is too small, the lines are jaggy
 					// if the parameter is too large, the lines tend to be straight
-					if(edgeLength_v1 > (edgeLength_v_1 * 1.1) )
-						forceAll += edge_v1 * 4;	
-					else if(edgeLength_v_1 > (edgeLength_v1 * 1.1) )
-						forceAll += edge_v_1 * 4;
+					if(edgeLength_v1 > (edgeLength_v_1 * 1.001) )
+						forceAll += edge_v1 * 8;	
+					else if(edgeLength_v_1 > (edgeLength_v1 * 1.001) )
+						forceAll += edge_v_1 * 8;
 				}
 			}
 		
@@ -594,9 +594,9 @@ void LensTouchLine()
 void launch_kernel(clock_t t0)//, unsigned int mesh_width, unsigned int mesh_height, float time)
 {
 //	clock_t t0;
-#if (TEST_PERFORMANCE == 2)
-//	t0 = clock();
-#endif
+//#if (TEST_PERFORMANCE == 2)
+////	t0 = clock();
+//#endif
 	_d_vec_prePos = _d_vec_pos;
 	float4* d_raw_ptr_pos = thrust::raw_pointer_cast(_d_vec_pos.data());
 
@@ -640,7 +640,7 @@ void launch_kernel(clock_t t0)//, unsigned int mesh_width, unsigned int mesh_hei
 					_h_vec_ellipseSet->size(),
 					*_deformMode,
 					_para);
-		
+		 
 #if (TEST_PERFORMANCE == 3)
 		cudaEventRecord(stop, 0);
 		cudaEventSynchronize(stop);

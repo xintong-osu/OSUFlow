@@ -13,6 +13,23 @@
 #else
 #define FILENAME "deform_data\\plume\\15plume3d421_seg.vec.trace"
 #endif
+
+//#define FILENAME_BUNDLE "D:/Dropbox/streamline/interactive_osuflow/build/renderer/examples/Release/data/15plume3d440_seed300_len500_norm.bdl"
+//#define FILENAME_BUNDLE "data/15plume3d440_seed300_len500_norm.bdl"
+//#define FILENAME_BUNDLE "data/15plume3d440_seed500_len100_norm.bdl"
+//#define FILENAME_BUNDLE "data/15plume3d440_seed500_len250_norm.bdl"
+//#define FILENAME_DIST "D:\\Dropbox\\streamline\\interactive_osuflow\\build\\renderer\\examples\\Release\\data\\15plume3d440_seed500_len250_norm_haus.dist"
+//#define FILENAME_DIST "D:\\Dropbox\\streamline\\interactive_osuflow\\build\\renderer\\examples\\Release\\data\\15plume3d440_seed500_len250_norm_curvature_torsion.dist"
+//#define FILENAME_DIST "D:\\data\\plume\\15plume3d440_seed200_len200_fix_seg.dist"
+//#define FILENAME_DIST "D:\\data\\isabel\\UVWf01_step500_seed500_seg.dist"
+#if 0
+static char* FILENAME_DIST = "data\\UVWf01_step500_seed500_seg.dist";
+#elif 0
+static char* FILENAME_DIST = "D:\\data\\nek\\nek.d_2_seg_emd.dist";
+#else
+static char* FILENAME_DIST = "deform_data\\plume\\15plume3d421_seg.dist";
+#endif
+
 //#define FILENAME_VEC "D:\\Dropbox\\data\\UVWf01.vec"
 //#define FILENAME "data/15plume3d440_seed500_len250_norm.vec.trace"
 int frameCount;
@@ -555,8 +572,10 @@ _DisplayFunc()
 
 	// render the scene
     draw_streamlines(); 
-	glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+#if (TEST_PERFORMANCE == 0)
 	drawFPS();
+#endif
 
 	// NOTE: Call glutSwapBuffers() at the end of your display function
 	glutSwapBuffers();
@@ -598,8 +617,18 @@ main(int argc, char* argv[])
 	LOG(printf("read file %s\n", argv[1]));
 
 	//ADD-BY-TONG 02/19/2013-BEGIN
-//	if(argc <= 1)
+	if(argc > 1)
+	{
+		readTraceFile(argv[1]);
+		cLineRenderer.getDeformLine()->SetDistFileName(argv[2]);
+	}
+	else
+	{
 		readTraceFile(FILENAME);
+		cLineRenderer.getDeformLine()->SetDistFileName(FILENAME_DIST);
+	}
+
+	
 //	else
 	//ADD-BY-TONG 02/19/2013-END	
 	//	readTraceFile(argv[1]);

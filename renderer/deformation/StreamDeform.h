@@ -361,6 +361,7 @@ class StreamDeform
 
 	bool _deformOn;	//turn on/off deformation
 	bool _autoDeformMode;
+	char *_filename_dist;
 
 	void ClusterStreamByBoundingBox(vector<int> streamIndices, vector<vector<int>> &streamGroups);
 	vector<vector<VECTOR4>> Groups2Hull(vector<vector<int>> streamGroups);
@@ -383,6 +384,8 @@ public:
 	void setDraggingStartPoint(int x, int y);
 	void setData(float *pfCoords, int size, vector<int> pviGlPrimitiveBases, vector<int> pviGlPrimitiveLengths);
 	void setMatrix(GLdouble *ModelViewMatrix, GLdouble *ProjectionMatrix, int *Viewport);
+	void SetDistFileName(char* arg);
+
 	//bool dragTo(int fromX, int fromY, int toX, int toY, float *depth, unsigned char *color);
 	//void getDragSet(float *depth, unsigned char *color, int size);
 	//void draw();

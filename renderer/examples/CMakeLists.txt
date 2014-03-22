@@ -40,6 +40,7 @@ link_directories(
 			gcbTubeDynamicColor
 			gcbPathline
 			gcbFileRenderer # ADD-BY-LEETEN 10/02/2012
+			gcbLongStreamline
 	)
 
 	# build the project as a library

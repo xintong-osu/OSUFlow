@@ -523,9 +523,10 @@ CLineRendererInOpenGLDeform::_Draw()
 {
 	if( 0 == uLid )
 		return;
+	clock_t t0 = clock();
 	
 
-	glClearColor(1.0,1.0,1.0,1.0);
+	glClearColor(0.0,0.0,0.0,1.0);
 	glClearDepth(1.0);
 
 	glPushMatrix();
@@ -561,7 +562,6 @@ CLineRendererInOpenGLDeform::_Draw()
 
 	_deformLine.RunCuda();
 
-	clock_t t0 = clock();
 
 	glUseProgram(line_programID);
 
@@ -695,8 +695,8 @@ CLineRendererInOpenGLDeform::_Draw()
     glPopMatrix();
 
     SDK_CHECK_ERROR_GL();
-#if (TEST_PERFORMANCE == 5)
-	PrintElapsedTime(t0, "rendering");
+#if (TEST_PERFORMANCE == 3)
+	PrintElapsedTime(t0, "entire _Draw() function");
 #endif
 }
 

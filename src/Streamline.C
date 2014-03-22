@@ -137,6 +137,11 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 				backTrace = new vtListSeedTrace;
 				computeFieldLine(BACKWARD,m_integrationOrder, STEADY, 
 				                 *backTrace, thisSeed->m_pointInfo);
+				//ADD-TONG-BEGIN
+				backTrace->reverse();
+				//remove the seed, which is repeated from the first element in 'forward trace'
+				backTrace->pop_back();
+				//ADD-TONG-END
 				listSeedTraces.push_back(backTrace);
 				if (listSeedIds != NULL)
 					(*listSeedIds).push_back(*sIdIter);
