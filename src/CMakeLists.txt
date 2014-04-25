@@ -70,6 +70,10 @@ list(APPEND SRC_FILES
 	LatticeAMR.C 
 	Plot3DReader.C
 	CurvilinearGrid.C
+	StreamSurface.C
+	calculus.C
+	GeometricDerivations.C
+
 	)
 
 # DEL-BY-LEETEN 01/06/2012-BEGIN

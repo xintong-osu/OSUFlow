@@ -1510,3 +1510,38 @@ OSUFlow::
 	fclose(fp);
 }
 // ADD-BY-LEETEN 09/29/2012-END
+
+// ADD BY AYAN 01/27/13
+bool OSUFlow::GenStreamSurface(list<VECTOR3>& listSeedTraces,
+                             TRACE_DIR traceDir,
+                             int maxPoints,
+                             unsigned int randomSeed)
+{
+        vtCStreamSurface* pStreamSurface;
+        float currentT = 0.0;
+        pStreamSurface = new vtCStreamSurface(flowField);
+        switch(traceDir)
+        {
+        case BACKWARD_DIR:
+                pStreamSurface->setBackwardTracing(true);
+                cout<<"Setting backward"<<endl;
+                break;
+        case FORWARD_DIR:
+                pStreamSurface->setForwardTracing(true);
+                cout<<"Setting Forward"<<endl;
+                break;
+        case BACKWARD_AND_FORWARD:
+                break;
+        }
+        pStreamSurface->SetLowerUpperAngle(3.0, 15.0);
+        pStreamSurface->setMaxPoints(maxPoints);
+        //pStreamSurface->setRange(range);
+        pStreamSurface->setSeedPoints(seedPtr, nSeeds, currentT);
+        pStreamSurface->SetInitialStepSize(initialStepSize);
+ //       pStreamSurface->SetMaxStepSize(maxStepSize);
+        pStreamSurface->setIntegrationOrder(FOURTH);
+        pStreamSurface->execute((void *)&currentT, listSeedTraces);
+        // release resource
+        delete pStreamSurface;
+        return true;
+} // ADD BY AYAN

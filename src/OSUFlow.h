@@ -15,6 +15,7 @@
 #include "Field.h"
 #include "Rake.h"
 #include "FieldLine.h"
+#include "StreamSurface.h"
 
 #include "FileReader.h"
 
@@ -101,7 +102,9 @@ class OSUFlow
 		      float current_time); 
   // use the input seed list, all start at current_time 
   bool GenStreakLines(VECTOR3* seeds, vtStreakTraces& StreakTraces, TIME_DIR, 
-		      int num_seeds, float current_time); 
+		      int num_seeds, float current_time);
+  
+  bool GenStreamSurface(list<VECTOR3>&, TRACE_DIR, int, unsigned int); 
 
   void Boundary(VECTOR3& minB, VECTOR3& maxB) { flowField->Boundary(minB, maxB); };
   void SetBoundary(VECTOR3 minB, VECTOR3 maxB) {flowField->SetBoundary(minB, maxB);}; 

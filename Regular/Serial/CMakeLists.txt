@@ -45,6 +45,7 @@ list(APPEND SRC_FILES
 	glPathlineSimple
 	gldraw_irregular
 	gldraw_curvilinear
+	glStreamSurfaceSimpleQuad
 	# Incompatible w/ Lattice4D: glPathlinePartition1
 	# Incompatible w/ Lattice4D: glPathlinePartition2
 	# Incompatible w/ Lattice4D: glPathlinePartitionSimple
@@ -94,6 +95,8 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 
 endforeach(SAMPLE_NAME)
 
+file (COPY      ${CMAKE_CURRENT_SOURCE_DIR}/new_arrow.ppm
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 #
 # $Log$
 #
