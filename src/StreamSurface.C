@@ -29,6 +29,8 @@ int nDim = 3;
 float hist2[BIN_HIST]={0};
 double sum_area=0.0,local_area=0.0;
 
+int isnan(double x) { return x != x; }
+
 float a_length(VECTOR3 pt1, VECTOR3 pt2)
 {
 	return sqrt((pt1[0]-pt2[0])*(pt1[0]-pt2[0])+(pt1[1]-pt2[1])*(pt1[1]-pt2[1])+(pt1[2]-pt2[2])*(pt1[2]-pt2[2]));
