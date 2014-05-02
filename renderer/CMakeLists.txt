@@ -68,6 +68,9 @@ if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011
 	add_subdirectory (examples)
 endif ()
 
+# ADD-BY-TONG 04/28/2014-BEGIN
+	add_subdirectory (InteractiveSurface)
+# ADD-BY-TONG 04/28/2014-END
 #
 # $Log$
 #
