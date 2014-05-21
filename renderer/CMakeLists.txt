@@ -68,6 +68,8 @@ if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011
 	add_subdirectory (examples)
 endif ()
 
+add_subdirectory (gesture)
+
 #
 # $Log$
 #
