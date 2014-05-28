@@ -1,4 +1,97 @@
 #include "GestureApp.h"
+#include "thrust\device_reference.h"
+#include "cutil_math.h"
+using namespace Leap;
+
+inline void drawBBox(float3 minLen, float3 maxLen)//float3 v[8])//v0, float3 v1, float3 v2, float3 v3, float3 v4, float3 v5, float3 v6, float3 v7)
+{
+	static const float s_afCorners[8][3] = {
+		// near face - ccw facing origin from face.
+		{minLen.x, minLen.y, maxLen.z},
+		{maxLen.x, minLen.y, maxLen.z},
+		{maxLen.x, maxLen.y, maxLen.z},
+		{minLen.x, maxLen.y, maxLen.z},
+
+		// far face - ccw facing origin from face
+		{minLen.x, minLen.y, minLen.z},
+		{maxLen.x, minLen.y, minLen.z},
+		{maxLen.x, maxLen.y, minLen.z},
+		{minLen.x, maxLen.y, minLen.z}
+	};
+
+	glPushAttrib( GL_LIGHTING_BIT );
+	glDisable(GL_LIGHTING);
+
+	glBegin( GL_LINE_LOOP );
+
+	// near
+	glNormal3f( 0, 0, 1 );
+	glVertex3fv( s_afCorners[0] );
+	glVertex3fv( s_afCorners[1] );
+	glVertex3fv( s_afCorners[2] );
+	glVertex3fv( s_afCorners[3] );
+
+	glEnd();
+	glBegin( GL_LINE_LOOP );
+
+	glVertex3fv( s_afCorners[4] );
+	glVertex3fv( s_afCorners[5] );
+	glVertex3fv( s_afCorners[6] );
+	glVertex3fv( s_afCorners[7] );
+
+	glEnd();
+
+	glBegin( GL_LINE_LOOP );
+
+	// far
+	glNormal3f( 0, 0, -1 );
+	glVertex3fv( s_afCorners[1] );
+	glVertex3fv( s_afCorners[5] );
+	glVertex3fv( s_afCorners[6] );
+	glVertex3fv( s_afCorners[2] );
+
+	glEnd();
+	glBegin( GL_LINE_LOOP );
+
+	glVertex3fv( s_afCorners[5] );
+	glVertex3fv( s_afCorners[4] );
+	glVertex3fv( s_afCorners[7] );
+	glVertex3fv( s_afCorners[6] );
+
+	glEnd();
+
+	glBegin( GL_LINE_LOOP );
+
+	// right
+	glNormal3f( 1, 0, 0 );
+	glVertex3fv( s_afCorners[4] );
+	glVertex3fv( s_afCorners[0] );
+	glVertex3fv( s_afCorners[3] );
+	glVertex3fv( s_afCorners[7] );
+
+	glEnd();
+	glBegin( GL_LINE_LOOP );
+
+	glVertex3fv( s_afCorners[3] );
+	glVertex3fv( s_afCorners[2] );
+	glVertex3fv( s_afCorners[6] );
+	glVertex3fv( s_afCorners[7] );
+
+	glEnd();
+	glBegin( GL_LINE_LOOP );
+
+	// left
+	glNormal3f( -1, 0, 0 );
+	glVertex3fv( s_afCorners[4] );
+	glVertex3fv( s_afCorners[5] );
+	glVertex3fv( s_afCorners[1] );
+	glVertex3fv( s_afCorners[0] );
+
+	glEnd();
+
+	glPopAttrib();
+}
+
 
 OpenGLCanvas::	OpenGLCanvas()
 	: Component( "OpenGLCanvas" )
@@ -16,9 +109,10 @@ OpenGLCanvas::	OpenGLCanvas()
 	initColors();
 
 	_dm.initOSUFlow();
-	updateShader();
+	_DataScale = 2.0f / _dm.GetDomainSize();
+	_mode = 1;
 
-
+	//updateShader();
 	resetCamera();
 
 	setWantsKeyboardFocus( true );
@@ -72,6 +166,8 @@ void OpenGLCanvas:: newOpenGLContextCreated()
 	glEnable(GL_LIGHTING);
 
 	m_fixedFont = Font("Courier New", 24, Font::plain );
+
+	_slFingers      = new StreamlineGL (m_openGLContext);
 }
 
 bool OpenGLCanvas::keyPressed( const KeyPress& keyPress )
@@ -124,6 +220,12 @@ bool OpenGLCanvas::keyPressed( const KeyPress& keyPress )
 		break;
 	case 'W':
 		_mode = 2;
+		break;
+	case 'E':
+		_mode = 3;
+		break;
+	case 'R':
+		_mode = 4;
 		break;
 	case 'C':
 		_fingerTrace.clear();
@@ -225,7 +327,7 @@ void OpenGLCanvas::setupScene()
 	glDepthFunc(GL_LESS);
 
 	glEnable(GL_BLEND);
-	glEnable(GL_TEXTURE_2D);
+	//glEnable(GL_TEXTURE_2D);
 
 	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, GLColor(Colours::darkgrey));
 
@@ -259,14 +361,13 @@ void OpenGLCanvas::updateShader()
 			&& newShader->addFragmentShader (OpenGLHelpers::translateFragmentShaderToV3 (newFragmentShader))
 			&& newShader->link())
 		{
-			_streamlines = nullptr;
+			_slFingers = nullptr;
 			_attributes = nullptr;
 			_uniforms = nullptr;
 
 			_shader = newShader;
 			_shader->use();
 
-			_streamlines      = new StreamlineGL (m_openGLContext);
 			_attributes = new Attributes (m_openGLContext, *_shader);
 			_uniforms   = new Uniforms (m_openGLContext, *_shader);
 
@@ -283,6 +384,15 @@ void OpenGLCanvas::updateShader()
 		newVertexShader = String::empty;
 		newFragmentShader = String::empty;
 	}
+}
+
+inline vector<float3> StablizeFingerTips(vector<float3> v)
+{
+	vector<float3> ret;
+	for(int i = 0; i < v.size(); i++)	{
+		ret.push_back(make_float3((int)(v[i].x * 20) * 0.05f, (int)(v[i].y * 20) * 0.05f, (int)(v[i].z * 20) * 0.05f));
+	}
+	return ret;
 }
 
 void OpenGLCanvas::renderOpenGL()
@@ -334,20 +444,70 @@ void OpenGLCanvas::renderOpenGL()
 			LeapUtilGL::drawGrid( LeapUtilGL::kPlane_ZX, 20, 20 );
 		}
 	}
-
 	switch(_mode)
 	{
 	case 1:
-		drawStreamlines();
-		break;
+		{
+			//drawStreamlines();
+			vector<vector<float3>> sls;
+			sls = _dm.compute_streamlines(CoordsGL2DataVector(StablizeFingerTips(_fingerTips)));//
+			CoordsData2GLVector(sls);
+			_slFingers->UpdateData(m_openGLContext, &sls);
+			_slFingers->draw(m_openGLContext);//, _attributes);
+			break;
+		}
 	case 2:
+		{
+			vector<float3> ft = CoordsGL2DataVector(StablizeFingerTips(_fingerTips));
+			vector<float3> rack;
+			float3 a0 = ft.at(0);
+			float3 a1 = ft.at(1);
+			int nSteps = 16;
+			float3 step = (a1 - a0) / (nSteps);
+			for(int i = 0 ; i < nSteps; i ++)	{
+				rack.push_back(a0 + i * step);
+			}
+			vector<vector<float3>> sls;
+			sls = _dm.compute_streamlines(rack);
+
+			CoordsData2GLVector(sls);
+			_slFingers->UpdateData(m_openGLContext, &sls);
+			_slFingers->draw(m_openGLContext);//, _attributes);
+			break;
+		}
+	case 3:
 		drawFingerTrace();
 		break;
+	case 4:
+		{
+			vector<vector<float3>> sls;
+			sls = _dm.compute_streamlines(CoordsGL2DataVector(_fingerTrace));//
+			CoordsData2GLVector(sls);
+			_slFingers->UpdateData(m_openGLContext, &sls);
+			_slFingers->draw(m_openGLContext);//, _attributes);
+			break;
+		}
 	default:
 		break;
 	}
 
-	_shader->use(); 
+
+	{
+
+		LeapUtilGL::GLMatrixScope BBoxScope;
+		float3 bb[8];
+		float3 minB, maxB;
+		float3 centerB;
+		//_dm.GetBBox(bb);
+		_dm.GetDataDomain(minB, maxB);
+		centerB = _dm.GetDataCenter();
+		glScalef( _DataScale, _DataScale, _DataScale);
+
+		glRotatef(-90, 1, 0, 0);
+		glTranslatef(- centerB.x, - centerB.y, - centerB.z);
+		drawBBox(minB, maxB);//float3 v0, float3 v1, float3 v2, float3 v3, float3 v4, float3 v5, float3 v6, float3 v7);
+	}
+	//_shader->use(); 
 
 	//if (_uniforms->projectionMatrix != nullptr)
 	//    _uniforms->projectionMatrix->setMatrix4 (getProjectionMatrix().mat, 1, false);
@@ -364,20 +524,75 @@ void OpenGLCanvas::renderOpenGL()
 	//if (_uniforms->bouncingNumber != nullptr)
 	//    _uniforms->bouncingNumber->set (bouncingNumber.getValue());
 
-	_streamlines->draw (m_openGLContext, *_attributes);
+	//	_slFingers->draw (m_openGLContext, *_attributes);
 
-	// Reset the element buffers so child Components draw correctly
-	m_openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, 0);
-	m_openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
+	//// Reset the element buffers so child Components draw correctly
+	//m_openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, 0);
+	//m_openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
+
+
 
 	// draw fingers/tools as lines with sphere at the tip.
 	drawPointables( frame );
+
 
 	{
 		ScopedLock renderLock(m_renderMutex);
 
 		// draw the text overlay
 		renderOpenGL2D();
+	}
+}
+
+float3 OpenGLCanvas::CoordsGL2Data(float3 v)
+{
+	//centerB = _dm.GetDataCenter();
+	//float fScale = 2.0f / _dm.GetDomainSize();
+	//glScalef( fScale, fScale, fScale );
+	v = v / _DataScale;
+	float3 dc = _dm.GetDataCenter();
+	Leap::Matrix mRot = Leap::Matrix(Leap::Vector(1, 0, 0), LeapUtil::kfHalfPi);//, Leap::Vector(dc.x, dc.y, dc.z));
+	Leap::Vector vv = mRot.transformPoint(Leap::Vector(v.x,v.y, v.z));
+	return make_float3(vv.x + dc.x, vv.y  + dc.y, vv.z + dc.z);
+	//	glRotatef(-90, 1, 0, 0);
+	//	glTranslatef(- centerB.x, - centerB.y, - centerB.z);
+}
+
+
+float3 OpenGLCanvas::CoordsData2GL(float3 v)
+{
+	//centerB = _dm.GetDataCenter();
+	//float fScale = 2.0f / _dm.GetDomainSize();
+	//glScalef( fScale, fScale, fScale );
+	//v = v / _DataScale;
+	//float3 dc = _dm.GetDataCenter();
+	//Leap::Matrix mRot = Leap::Matrix(Leap::Vector(1, 0, 0), LeapUtil::kfHalfPi);//, Leap::Vector(dc.x, dc.y, dc.z));
+	//Leap::Vector vv = mRot.transformPoint(Leap::Vector(v.x,v.y, v.z));
+	float3 dc = _dm.GetDataCenter();
+	v -= dc;
+	Leap::Matrix mRot = Leap::Matrix(Leap::Vector(1, 0, 0), - LeapUtil::kfHalfPi);//, Leap::Vector(dc.x, dc.y, dc.z));
+	Leap::Vector vv = mRot.transformPoint(Leap::Vector(v.x,v.y, v.z));
+	vv *= _DataScale;
+	return make_float3(vv.x, vv.y, vv.z);
+	//	glRotatef(-90, 1, 0, 0);
+	//	glTranslatef(- centerB.x, - centerB.y, - centerB.z);
+}
+
+vector<float3> OpenGLCanvas::CoordsGL2DataVector(vector<float3> v)
+{
+	vector<float3> ret;
+	for(int i = 0; i < v.size(); i++)	{
+		ret.push_back(CoordsGL2Data(v[i]));
+	}
+	return ret;
+}
+
+void OpenGLCanvas::CoordsData2GLVector(vector<vector<float3>> &v)
+{
+	for(int i = 0; i < v.size(); i++)	{
+		for(int j = 0; j < v.at(i).size(); j++)	{
+			v[i][j] = CoordsData2GL(v[i][j]);
+		}
 	}
 }
 
@@ -431,11 +646,13 @@ void OpenGLCanvas::drawFingerTrace()
 {
 	glBegin(GL_LINE_STRIP);
 	for(int i = 0; i < _fingerTrace.size(); i++)	{
-		float3 p = _dm.ConvertCoordinates(_fingerTrace[i]);
-		glVertex3f(p.x, p.y, p.z);
+		float3 p = _fingerTrace[i];////m_mtxFrameTransform.transformPoint(_fingerTrace[i]);// _dm.ConvertCoordinates(_fingerTrace[i]);
+		//glVertex3f(p.x * m_fFrameScale, p.y * m_fFrameScale, p.z * m_fFrameScale);
+		glVertex3f(p.x , p.y , p.z);
 	}
 	glEnd(); 
 }
+
 
 void OpenGLCanvas::drawPointables( Leap::Frame frame )
 {
@@ -447,52 +664,89 @@ void OpenGLCanvas::drawPointables( Leap::Frame frame )
 
 	glLineWidth( 3.0f );
 
-	_dm.ClearSeeds();
+	//_dm.ClearSeeds();
 	m_strCoordinates = "";
-	for ( int i = 0, e = pointables.count(); i < e; i++ )
-	{
-		const Leap::Pointable&  pointable   = pointables[i];
-		Leap::Vector            vStartPos   = m_mtxFrameTransform.transformPoint( pointable.tipPosition() * m_fFrameScale );
-		Leap::Vector            vEndPos     = m_mtxFrameTransform.transformDirection( pointable.direction() ) * -0.25f;
-		const uint32_t          colorIndex  = static_cast<uint32_t>(pointable.id()) % kNumColors;
-		glColor3fv( m_avColors[colorIndex].toFloatPointer() );
+	_fingerTips.clear();
 
-		stringstream ss;
-		ss<<"x:"<< pointable.tipPosition().x;
-		ss<<", y:"<< pointable.tipPosition().y;
-		ss<<", z:"<< pointable.tipPosition().z;
-		ss<<"\n";
-		m_strCoordinates.append(ss.str(), 100);
+	const std::string fingerNames[] = {"Thumb", "Index", "Middle", "Ring", "Pinky"};
+	HandList hands = frame.hands();
+	for (HandList::const_iterator hl = hands.begin(); hl != hands.end(); ++hl) {
+		// Get the first hand
+		const Hand hand = *hl;
 
-		{
-			LeapUtilGL::GLMatrixScope matrixScope;
+		// Get fingers
+		const FingerList fingers = hand.fingers();
+		for (FingerList::const_iterator fl = fingers.begin(); fl != fingers.end(); ++fl) {
+			const Finger finger = *fl;
+			Leap::Vector vStartPos   = m_mtxFrameTransform.transformPoint( finger.bone(Bone::Type::TYPE_DISTAL).center() * m_fFrameScale );
 
-			glTranslatef( vStartPos.x, vStartPos.y, vStartPos.z );
-			_dm.InsertSeed(VECTOR3(
-				pointable.tipPosition().x, 
-				pointable.tipPosition().y, 
-				pointable.tipPosition().z));
+			stringstream ss;
+			ss<<"x:"<< finger.bone(Bone::Type::TYPE_DISTAL).center().x;
+			ss<<", y:"<< finger.bone(Bone::Type::TYPE_DISTAL).center().y;
+			ss<<", z:"<< finger.bone(Bone::Type::TYPE_DISTAL).center().z;
+			ss<<"\n";
+			m_strCoordinates.append(ss.str(), 100);
 
-			//glBegin(GL_LINES);
+			{
+				LeapUtilGL::GLMatrixScope matrixScope;
 
-			//glVertex3f( 0, 0, 0 ); 
-			//glVertex3fv( vEndPos.toFloatPointer() );
+				glTranslatef( vStartPos.x, vStartPos.y, vStartPos.z );
+				glScalef( fScale, fScale, fScale );
 
-			//glEnd();
-
-			glScalef( fScale, fScale, fScale );
-
-			//     LeapUtilGL::drawSphere( LeapUtilGL::kStyle_Solid );
-			if(i == 0)	{
-				_fingerTrace.push_back(_dm.ConvCoordsLeap2Data(
-					pointable.tipPosition().x, 
-					pointable.tipPosition().y, 
-					pointable.tipPosition().z));
+				LeapUtilGL::drawSphere( LeapUtilGL::kStyle_Solid );
+				_fingerTips.push_back(make_float3(vStartPos.x, vStartPos.y, vStartPos.z));
+				if(finger.type() == 1)	{
+					_fingerTrace.push_back(make_float3(vStartPos.x, vStartPos.y, vStartPos.z));
+				}
 			}
 		}
-
-
 	}
+
+	//for ( int i = 0, e = pointables.count(); i < e; i++ )
+	//{
+	//	const Leap::Pointable&  pointable   = pointables[i];
+	//	Leap::Vector            vStartPos   = m_mtxFrameTransform.transformPoint( pointable.tipPosition() * m_fFrameScale );
+	//	Leap::Vector            vEndPos     = m_mtxFrameTransform.transformDirection( pointable.direction() ) * -0.25f;
+	//	const uint32_t          colorIndex  = static_cast<uint32_t>(pointable.id()) % kNumColors;
+	//	glColor3fv( m_avColors[colorIndex].toFloatPointer() );
+
+	//	stringstream ss;
+	//	ss<<"x:"<< pointable.tipPosition().x;
+	//	ss<<", y:"<< pointable.tipPosition().y;
+	//	ss<<", z:"<< pointable.tipPosition().z;
+	//	ss<<"\n";
+	//	m_strCoordinates.append(ss.str(), 100);
+
+	//	{
+	//		LeapUtilGL::GLMatrixScope matrixScope;
+
+	//		glTranslatef( vStartPos.x, vStartPos.y, vStartPos.z );
+	//		//_dm.InsertSeed(VECTOR3(
+	//		//	pointable.tipPosition().x, 
+	//		//	pointable.tipPosition().y, 
+	//		//	pointable.tipPosition().z));
+
+	//		//glBegin(GL_LINES);
+
+	//		//glVertex3f( 0, 0, 0 ); 
+	//		//glVertex3fv( vEndPos.toFloatPointer() );
+
+	//		//glEnd();
+
+	//		glScalef( fScale, fScale, fScale );
+
+	//		LeapUtilGL::drawSphere( LeapUtilGL::kStyle_Solid );
+	//		_fingerTips.push_back(make_float3(vStartPos.x, vStartPos.y, vStartPos.z));
+	//		if(i == 0)	{
+	//			_fingerTrace.push_back(make_float3(vStartPos.x, vStartPos.y, vStartPos.z));//(Leap::Vector(
+	//			/*pointable.tipPosition().x, 
+	//			pointable.tipPosition().y, 
+	//			pointable.tipPosition().z));*/
+	//		}
+	//	}
+
+
+	//}
 }
 
 void OpenGLCanvas::initColors()

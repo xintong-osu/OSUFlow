@@ -10,7 +10,7 @@ using namespace std;
 struct Vertex
 {
 	float position[3];
-	float normal[3];
+//	float normal[3];
 	//float colour[4];
 	//float texCoord[2];
 };
@@ -74,6 +74,70 @@ private:
 	}
 };
 
+static void createPrimitivesFromVectors(vector<vector<float3>>* sls, Array<Vertex>& list, vector<int> &lengths, vector<int> &indices)
+{
+	lengths.clear();
+	indices.clear();
+	int firstIdx = 0;
+	for(int i = 0; i < sls->size(); i++)	{
+		lengths.push_back((int)sls->at(i).size());
+		indices.push_back(firstIdx);
+		firstIdx += lengths.back();
+		vector<float3>* sl = &sls->at(i);
+		for(int j = 0; j < sl->size(); j++)	{
+			//vertices.push_back(sl->at(j));
+			Vertex vert = 
+			{
+				{sl->at(j).x, sl->at(j).y, sl->at(j).z}//,
+				//{1, 0, 0}
+			};
+			list.add(vert);
+		}
+	}
+}
+
+class VertexBuffer
+{
+public:
+	VertexBuffer (OpenGLContext& context);
+
+	void UpdateData(OpenGLContext& context, vector<vector<float3>>* sls, 
+		vector<int> &lengths, vector<int> &indices)
+	{
+		openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, vertexBuffer);
+		Array<Vertex> vertices;
+		createPrimitivesFromVectors(sls, vertices, lengths, indices);
+		openGLContext.extensions.glBufferData (GL_ARRAY_BUFFER, vertices.size() * sizeof (Vertex),
+			vertices.getRawDataPointer(), GL_STATIC_DRAW);
+		openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, 0);
+	}
+
+	~VertexBuffer()
+	{
+		openGLContext.extensions.glDeleteBuffers (1, &vertexBuffer);
+		//openGLContext.extensions.glDeleteBuffers (1, &indexBuffer);
+	}
+
+	void bind()
+	{
+		openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, vertexBuffer);
+		//openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	}
+
+private:
+
+
+	GLuint vertexBuffer, indexBuffer;
+	//int numIndices;
+	OpenGLContext& openGLContext;
+
+
+
+
+
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VertexBuffer)
+};
+
 //==============================================================================
 // This class just manages the uniform values that the demo shaders use.
 struct Uniforms
@@ -105,88 +169,24 @@ private:
 class StreamlineGL
 {
 public:
-	StreamlineGL (OpenGLContext& openGLContext)
-	{
-		//if (shapeFile.load (BinaryData::teapot_obj).wasOk())
-		//	for (int i = 0; i < shapeFile.shapes.size(); ++i)
-		//		vertexBuffers.add (new VertexBuffer (openGLContext, *shapeFile.shapes.getUnchecked(i)));
-
-	}
+	StreamlineGL::StreamlineGL (OpenGLContext& openGLContext);
 
 	StreamlineGL (OpenGLContext& openGLContext, vector<vector<float3>>* sls);
 
+	void UpdateData(OpenGLContext& openGLContext, vector<vector<float3>>* sls);
 
-	void draw (OpenGLContext& openGLContext, Attributes& attributes);
+	void draw (OpenGLContext& openGLContext);//, Attributes& attributes);
 
 
 private:
-	static void createPrimitivesFromVectors(vector<vector<float3>>* sls, Array<Vertex>& list, vector<int> &lengths, vector<int> &indices)
-	{
-		int firstIdx = 0;
-		for(int i = 0; i < sls->size(); i++)	{
-			lengths.push_back((int)sls->at(i).size());
-			indices.push_back(firstIdx);
-			firstIdx += lengths.back();
-			vector<float3>* sl = &sls->at(i);
-			for(int j = 0; j < sl->size(); j++)	{
-				//vertices.push_back(sl->at(j));
-				Vertex vert = 
-				{
-					{sl->at(j).x, sl->at(j).y, sl->at(j).z},
-					{1, 0, 0}
-				};
-				list.add(vert);
-			}
-		}
-	}
-
-	struct VertexBuffer
-	{
-		vector<int> _lengths;
-		vector<int> _indices;
-		GLuint vertexBuffer, indexBuffer;
-		//int numIndices;
-		OpenGLContext& openGLContext;
-
-		VertexBuffer (OpenGLContext& context, vector<vector<float3>>* sls) : openGLContext (context)
-		{
-			//numIndices = shape.mesh.indices.size();
-
-			openGLContext.extensions.glGenBuffers (1, &vertexBuffer);
-			openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, vertexBuffer);
-
-			Array<Vertex> vertices;
-			//createVertexListFromMesh (shape.mesh, vertices, Colours::green);
-			//vector<float3> vertices;
-
-			createPrimitivesFromVectors(sls, vertices, _lengths, _indices);
-
-			openGLContext.extensions.glBufferData (GL_ARRAY_BUFFER, vertices.size() * sizeof (Vertex),
-				vertices.getRawDataPointer(), GL_STATIC_DRAW);
-
-			//openGLContext.extensions.glGenBuffers (1, &indexBuffer);
-			//openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-			//openGLContext.extensions.glBufferData (GL_ELEMENT_ARRAY_BUFFER, numIndices * sizeof (juce::uint32),
-			//	shape.mesh.indices.getRawDataPointer(), GL_STATIC_DRAW);
-		}
-
-		~VertexBuffer()
-		{
-			openGLContext.extensions.glDeleteBuffers (1, &vertexBuffer);
-			//openGLContext.extensions.glDeleteBuffers (1, &indexBuffer);
-		}
-
-		void bind()
-		{
-			openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, vertexBuffer);
-			//openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-		}
 
 
+	VertexBuffer *_lineBuffer;
 
-		JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VertexBuffer)
-	};
-	OwnedArray<VertexBuffer> vertexBuffers;
+	//	OwnedArray<VertexBuffer> vertexBuffers;
+	vector<int> _lengths;
+	vector<int> _indices;
+	//	OpenGLContext _openGLContext;
 
 	//WavefrontObjFile shapeFile;
 

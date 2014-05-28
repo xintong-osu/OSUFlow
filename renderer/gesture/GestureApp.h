@@ -31,7 +31,7 @@ struct GLColor
 };
 //==============================================================================
 class OpenGLCanvas  : public Component,
-	public OpenGLRenderer,
+	private OpenGLRenderer,
 	Leap::Listener
 {
 public:
@@ -153,7 +153,7 @@ private:
 	Leap::Vector            m_avColors[kNumColors];
 
 	ScopedPointer<OpenGLShaderProgram> _shader;
-    ScopedPointer<StreamlineGL> _streamlines;
+    ScopedPointer<StreamlineGL> _slFingers;
     ScopedPointer<Attributes> _attributes;
     ScopedPointer<Uniforms> _uniforms;
        
@@ -162,8 +162,14 @@ private:
 	String newVertexShader, newFragmentShader;
 	DataMgr _dm;
 	int _mode;
-	vector<VECTOR3> _fingerTrace;
+	vector<float3> _fingerTrace;
+	vector<float3> _fingerTips;
 
+	float3 CoordsGL2Data(float3 v);
+	vector<float3> CoordsGL2DataVector(vector<float3> v);
+	void CoordsData2GLVector(vector<vector<float3>> &v);
+	float3 CoordsData2GL(float3 v);
+	float _DataScale;
 	//==============================================================================
     
 };

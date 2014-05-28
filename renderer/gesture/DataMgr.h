@@ -19,6 +19,11 @@ public:
 	VECTOR3 ConvCoordsLeap2Data(float x, float y, float z);
 	float3 ConvertCoordinates(float3 v);
 	vector<vector<float3>>* GetStreamLines();
+	void GetBBox(float3* coords);
+	void GetDataDomain(float3 &min, float3 &max);
+	float3 GetDataCenter();
+	float GetDomainSize();
+	vector<vector<float3>> compute_streamlines(vector<float3> sd) ;
 
 private:
 	char *szVecFilePath;	// ADD-BY-LEETEN 09/29/2012

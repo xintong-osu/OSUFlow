@@ -273,7 +273,7 @@ class Camera
 public:
   Camera()
     : m_fOrbitDistance(-1.0f),
-      m_fMaxOrbitLatitude( LeapUtil::kfPi * 0.375f ),
+      m_fMaxOrbitLatitude( LeapUtil::kfPi * 0.495f),//LeapUtil::kfPi * 0.375f ),
       m_fNearClip( 0.1f ),
       m_fFarClip( 128.0f ),
       m_fVerticalFOVDegrees( 40.0f ),
