@@ -121,7 +121,7 @@ OpenGLCanvas::	OpenGLCanvas()
 
 	m_fFrameScale = 0.0075f;
 	m_mtxFrameTransform.origin = Leap::Vector( 0.0f, -2.0f, 0.5f );
-	m_fPointableRadius = 0.05f;
+	m_fPointableRadius = 0.02f;
 
 	m_bShowHelp = false;
 
@@ -418,6 +418,7 @@ void OpenGLCanvas::renderOpenGL()
 
 	setupScene();
 
+	vector<float3> rack;
 	// draw the grid background
 	{
 		LeapUtilGL::GLAttribScope colorScope(GL_CURRENT_BIT);
@@ -459,7 +460,8 @@ void OpenGLCanvas::renderOpenGL()
 	case 2:
 		{
 			vector<float3> ft = CoordsGL2DataVector(StablizeFingerTips(_fingerTips));
-			vector<float3> rack;
+			if(ft.size() < 2)
+				return;
 			float3 a0 = ft.at(0);
 			float3 a1 = ft.at(1);
 			int nSteps = 16;
@@ -473,6 +475,16 @@ void OpenGLCanvas::renderOpenGL()
 			CoordsData2GLVector(sls);
 			_slFingers->UpdateData(m_openGLContext, &sls);
 			_slFingers->draw(m_openGLContext);//, _attributes);
+
+			glColor3f(0.8f, 0.2f, 0.1f);
+			glPointSize(5);
+			glBegin(GL_POINTS);
+			for(int i = 0 ; i < rack.size(); i++)	{
+				float3 p= CoordsData2GL(rack[i]);
+				glVertex3fv(&p.x);
+			}
+			glEnd();
+			glColor3f(1.0f, 1.0f, 1.0f);
 			break;
 		}
 	case 3:
@@ -506,6 +518,7 @@ void OpenGLCanvas::renderOpenGL()
 		glRotatef(-90, 1, 0, 0);
 		glTranslatef(- centerB.x, - centerB.y, - centerB.z);
 		drawBBox(minB, maxB);//float3 v0, float3 v1, float3 v2, float3 v3, float3 v4, float3 v5, float3 v6, float3 v7);
+
 	}
 	//_shader->use(); 
 
