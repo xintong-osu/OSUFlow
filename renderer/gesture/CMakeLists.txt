@@ -27,6 +27,8 @@ add_executable(${PROJECT_NAME} WIN32
 	StreamlineGL.cpp
 	GestureApp.h
 	GestureApp.cpp
+	SphericalCursor.h
+	SphericalCursor.cpp
 	LeapUtil/LeapScene.h
 	LeapUtil/LeapScene.cpp
 	LeapUtil/LeapUtil.h

@@ -1,7 +1,33 @@
 #include "GestureApp.h"
 #include "thrust\device_reference.h"
 #include "cutil_math.h"
+//#include "LeapUtilGL.h"
 using namespace Leap;
+
+//inline void drawGridFace(Leap::Vector v0, Leap::Vector v1)
+//{
+//	//GLAttribScope lightingScope( GL_LIGHTING_BIT );
+//	glPushAttrib( GL_LIGHTING_BIT );
+//
+//	glDisable(GL_LIGHTING);
+//
+//	glBegin( GL_LINES );
+//
+//	for ( float x = -fHalfGridSize; x < fHEndStep; x += fHGridStep )
+//	{
+//		glVertex3f( x, -fHalfGridSize, 0 );
+//		glVertex3f( x, fHalfGridSize, 0 );
+//	}
+//
+//	for ( float y = -fHalfGridSize; y < fVEndStep; y += fVGridStep )
+//	{
+//		glVertex3f( -fHalfGridSize, y, 0 );
+//		glVertex3f( fHalfGridSize, y, 0 );
+//	}
+//	glEnd();
+//
+//	glPopAttrib();
+//}
 
 inline void drawBBox(float3 minLen, float3 maxLen)//float3 v[8])//v0, float3 v1, float3 v2, float3 v3, float3 v4, float3 v5, float3 v6, float3 v7)
 {
@@ -109,7 +135,10 @@ OpenGLCanvas::	OpenGLCanvas()
 	initColors();
 
 	_dm.initOSUFlow();
+	_sc.SetCenter(CoordsData2GL(_dm.GetDataCenter()));
 	_DataScale = 2.0f / _dm.GetDomainSize();
+	_sc.SetRadiusIn(_dm.GetDomainSize() * _DataScale * 0.03);
+	_sc.SetRadiusOut(_sc.GetRadiusIn() * 2);
 	_mode = 1;
 
 	//updateShader();
@@ -227,6 +256,8 @@ bool OpenGLCanvas::keyPressed( const KeyPress& keyPress )
 	case 'R':
 		_mode = 4;
 		break;
+	case 'T':
+		_mode = 5;
 	case 'C':
 		_fingerTrace.clear();
 		break;
@@ -302,6 +333,8 @@ void OpenGLCanvas::update( Leap::Frame frame )
 	float fUpdateDT = m_avgUpdateDeltaTime.AddSample( deltaTimeSeconds );
 	float fUpdateFPS = (fUpdateDT > 0) ? 1.0f/fUpdateDT : 0.0f;
 	m_strUpdateFPS = String::formatted( "UpdateFPS: %4.2f", fUpdateFPS );
+
+	_sc.FingerInput(frame);
 }
 
 void OpenGLCanvas::setupScene()
@@ -425,25 +458,25 @@ void OpenGLCanvas::renderOpenGL()
 
 		glColor3f( 0, 0, 1 );
 
-		{
-			LeapUtilGL::GLMatrixScope gridMatrixScope;
+		//{
+		//	LeapUtilGL::GLMatrixScope gridMatrixScope;
 
-			glTranslatef( 0, 0.0f, -1.5f );
+		//	glTranslatef( 0, 0.0f, -1.5f );
 
-			glScalef( 3, 3, 3 );
+		//	glScalef( 3, 3, 3 );
 
-			LeapUtilGL::drawGrid( LeapUtilGL::kPlane_XY, 20, 20 );
-		}
+		//	LeapUtilGL::drawGrid( LeapUtilGL::kPlane_XY, 20, 20 );
+		//}
 
-		{
-			LeapUtilGL::GLMatrixScope gridMatrixScope;
+		//{
+		//	LeapUtilGL::GLMatrixScope gridMatrixScope;
 
-			glTranslatef( 0, -1.5f, 0.0f );
+		//	glTranslatef( 0, -1.5f, 0.0f );
 
-			glScalef( 3, 3, 3 );
+		//	glScalef( 3, 3, 3 );
 
-			LeapUtilGL::drawGrid( LeapUtilGL::kPlane_ZX, 20, 20 );
-		}
+		//	LeapUtilGL::drawGrid( LeapUtilGL::kPlane_ZX, 20, 20 );
+		//}
 	}
 	switch(_mode)
 	{
@@ -451,7 +484,7 @@ void OpenGLCanvas::renderOpenGL()
 		{
 			//drawStreamlines();
 			vector<vector<float3>> sls;
-			sls = _dm.compute_streamlines(CoordsGL2DataVector(StablizeFingerTips(_fingerTips)));//
+			sls = _dm.compute_streamlines(CoordsGL2DataVector((_fingerTips)));//StablizeFingerTips
 			CoordsData2GLVector(sls);
 			_slFingers->UpdateData(m_openGLContext, &sls);
 			_slFingers->draw(m_openGLContext);//, _attributes);
@@ -459,7 +492,7 @@ void OpenGLCanvas::renderOpenGL()
 		}
 	case 2:
 		{
-			vector<float3> ft = CoordsGL2DataVector(StablizeFingerTips(_fingerTips));
+			vector<float3> ft = CoordsGL2DataVector((_fingerTips));//StablizeFingerTips
 			if(ft.size() < 2)
 				return;
 			float3 a0 = ft.at(0);
@@ -499,6 +532,19 @@ void OpenGLCanvas::renderOpenGL()
 			_slFingers->draw(m_openGLContext);//, _attributes);
 			break;
 		}
+	case 5:
+		{
+			//drawStreamlines();
+			vector<vector<float3>> sls;
+			Leap::Vector p = _sc.GetCenter();
+			vector<float3> pts;
+			pts.push_back(make_float3(p.x, p.y, p.z));
+			sls = _dm.compute_streamlines(CoordsGL2DataVector(pts));//StablizeFingerTips
+			CoordsData2GLVector(sls);
+			_slFingers->UpdateData(m_openGLContext, &sls);
+			_slFingers->draw(m_openGLContext);//, _attributes);
+			break;
+		}
 	default:
 		break;
 	}
@@ -519,7 +565,16 @@ void OpenGLCanvas::renderOpenGL()
 		glTranslatef(- centerB.x, - centerB.y, - centerB.z);
 		drawBBox(minB, maxB);//float3 v0, float3 v1, float3 v2, float3 v3, float3 v4, float3 v5, float3 v6, float3 v7);
 
+		//LeapUtilGL::GLMatrixScope gridMatrixScope;
+
+		//glTranslatef( minB.x, minB.y, minB.z);
+
+		//glScalef( 3, 3, 3 );
+
+		LeapUtilGL::drawGrid( LeapUtilGL::kPlane_ZX, 20, 20 );
 	}
+
+
 	//_shader->use(); 
 
 	//if (_uniforms->projectionMatrix != nullptr)
@@ -544,10 +599,10 @@ void OpenGLCanvas::renderOpenGL()
 	//m_openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
 
 
-
 	// draw fingers/tools as lines with sphere at the tip.
 	drawPointables( frame );
 
+	_sc.Draw();
 
 	{
 		ScopedLock renderLock(m_renderMutex);
@@ -691,7 +746,7 @@ void OpenGLCanvas::drawPointables( Leap::Frame frame )
 		const FingerList fingers = hand.fingers();
 		for (FingerList::const_iterator fl = fingers.begin(); fl != fingers.end(); ++fl) {
 			const Finger finger = *fl;
-			Leap::Vector vStartPos   = m_mtxFrameTransform.transformPoint( finger.bone(Bone::Type::TYPE_DISTAL).center() * m_fFrameScale );
+			Leap::Vector vStartPos   = m_mtxFrameTransform.transformPoint( finger.bone(Bone::Type::TYPE_DISTAL).nextJoint() * m_fFrameScale );
 
 			stringstream ss;
 			ss<<"x:"<< finger.bone(Bone::Type::TYPE_DISTAL).center().x;

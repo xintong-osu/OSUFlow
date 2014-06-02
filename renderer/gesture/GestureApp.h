@@ -5,6 +5,7 @@
 #include "LeapUtilGL.h"
 #include "DataMgr.h"
 #include "StreamlineGL.h"
+#include "SphericalCursor.h"
 //#include <cctype>
 
 
@@ -172,6 +173,7 @@ private:
 	float _DataScale;
 	//==============================================================================
     
+	SphericalCursor _sc;
 };
 
 
