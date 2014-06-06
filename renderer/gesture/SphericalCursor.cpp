@@ -2,11 +2,31 @@
 #include <Windows.h>
 #include <GL/gl.h>
 #include <GL\GLU.h>
+#include <sstream>
 
 using namespace Leap;
 
 const std::string fingerNames[] = {"Thumb", "Index", "Middle", "Ring", "Pinky"};
 const std::string boneNames[] = {"Metacarpal", "Proximal", "Middle", "Distal"};
+
+static int GetNumOfExtendedFingers(const FingerList fingers)
+{
+	int extendedFingers = 0;
+	for (int f = 0; f < fingers.count(); f++)	{
+		Finger finger = fingers[f];
+		if(finger.isExtended()) extendedFingers++;
+	}
+	return extendedFingers;
+}
+
+static Finger GetExtendedFinger(const FingerList fingers)
+{
+	for (int f = 0; f < fingers.count(); f++)	{
+		Finger finger = fingers[f];
+		if(finger.isExtended()) 
+			return finger;
+	}
+}
 
 void SphericalCursor::SetCenter(float x, float y, float z)
 {
@@ -51,20 +71,23 @@ void SphericalCursor::FingerInput(float3 v0, float3 v1, float3 v2, float3 v3, fl
 
 }
 
+
 void SphericalCursor::ScaleFingers(const Leap::Frame frame)//std::vector<Leap::Vector> v)
 {
 	const FingerList fingers = frame.hands().leftmost().fingers();
 	//Leap::Vector f1 = fingers.leftmost().tipPosition();
 	//Leap::Vector f2 = fingers.rightmost().tipPosition();
-	_translate = fingers[2].bone(Leap::Bone::Type::TYPE_PROXIMAL).prevJoint();//(f1 + f2) * 0.5;
+	_translate = GetExtendedFinger(fingers).tipPosition();//fingers[2].bone(Leap::Bone::Type::TYPE_PROXIMAL).prevJoint();//(f1 + f2) * 0.5;
 	_scale = (_radiusIn + _radiusOut) / frame.hands().leftmost().palmWidth();
 	_centerFixed = _center;
 }
-	
+
 Leap::Vector SphericalCursor::CoordsGlobal2Local(Leap::Vector v)
 {
 	return (v- _translate) * _scale + _centerFixed;
 }
+
+
 
 
 void SphericalCursor::ComputeFingerInSphere(const Leap::Frame frame)
@@ -80,7 +103,7 @@ void SphericalCursor::ComputeFingerInSphere(const Leap::Frame frame)
 	_handCenter = CoordsGlobal2Local(fingers[2].bone(Leap::Bone::Type::TYPE_PROXIMAL).prevJoint());
 }
 
-void SphericalCursor::ChangeSpheres()
+void SphericalCursor::Translate(const Leap::Frame frame)
 {
 	//for(int i = 0; i < _fingersInSphere.size(); i++)	{
 	//	if(_fingersInSphere[i].distanceTo(_center) > _radiusOut)	{
@@ -90,6 +113,12 @@ void SphericalCursor::ChangeSpheres()
 	//		break;
 	//	}
 	//}
+	FingerList fingers =  frame.hands().leftmost().fingers();
+	if(GetNumOfExtendedFingers(fingers )> 0)
+		_handCenter = CoordsGlobal2Local(GetExtendedFinger(fingers).tipPosition());
+	else
+		_handCenter = CoordsGlobal2Local(frame.hands().leftmost().fingers().fingerType(Finger::TYPE_INDEX)[0].tipPosition());
+	//	_handCenter = CoordsGlobal2Local(fingers[2].bone(Leap::Bone::Type::TYPE_PROXIMAL).prevJoint());
 	float dist = _handCenter.distanceTo(_center);
 	if(dist > _radiusIn)	{
 		float moveAmount = dist - _radiusIn;
@@ -112,58 +141,89 @@ Leap::Vector SphericalCursor::GetHandCenter()
 void SphericalCursor::FingerInput(Leap::Frame frame)
 {
 	HandList hands = frame.hands();
-	for (HandList::const_iterator hl = hands.begin(); hl != hands.end(); ++hl) {
-		// Get the first hand
-		const Hand hand = *hl;
-		//std::string handType = hand.isLeft() ? "Left hand" : "Right hand";
-		//std::cout << std::string(2, ' ') << handType << ", id: " << hand.id()
-		//          << ", palm position: " << hand.palmPosition() << std::endl;
-		//// Get the hand's normal vector and direction
-		//const Vector normal = hand.palmNormal();
-		//const Vector direction = hand.direction();
+	const Hand hand = hands.leftmost();
+	_numExtendedFingers = GetNumOfExtendedFingers(hand.fingers());
+	_transformModePrev = _transformMode;
+	if(0 == _numExtendedFingers )
+	{
+		_transformMode = TRANSFORM_MODE::IDLE;
 
-		//// Calculate the hand's pitch, roll, and yaw angles
-		//std::cout << std::string(2, ' ') <<  "pitch: " << direction.pitch() * RAD_TO_DEG << " degrees, "
-		//          << "roll: " << normal.roll() * RAD_TO_DEG << " degrees, "
-		//          << "yaw: " << direction.yaw() * RAD_TO_DEG << " degrees" << std::endl;
+		_start = std::clock();
+	}
+    double duration;
+    duration = ( std::clock() - _start ) / (double) CLOCKS_PER_SEC;
 
-		// Get fingers
-		const FingerList fingers = hand.fingers();
-		std::vector<Vector> fingertips;
-		for (FingerList::const_iterator fl = fingers.begin(); fl != fingers.end(); ++fl) {
-			const Finger finger = *fl;
-			std::cout << std::string(4, ' ') <<  fingerNames[finger.type()]
-			<< " finger, id: " << finger.id()
-				<< ", length: " << finger.length()
-				<< "mm, width: " << finger.width() << std::endl;
-
-			// Get finger bones
-			for (int b = 0; b < 4; ++b) {
-				Bone::Type boneType = static_cast<Bone::Type>(b);
-				Bone bone = finger.bone(boneType);
-				std::cout << std::string(6, ' ') <<  boneNames[boneType]
-				<< " bone, start: " << bone.prevJoint()
-					<< ", end: " << bone.nextJoint()
-					<< ", direction: " << bone.direction() << std::endl;
-			}
-			fingertips.push_back(finger.bone(Leap::Bone::Type::TYPE_DISTAL).nextJoint());
-		}
-
-		_statePrev = _state;
-		if(hand.grabStrength() > 0.9)
-			_state = 1;
-		else
-			_state = 0;
-
-		if(_statePrev == 0 && _state == 1)	{
+	//give half a second to allow the device to detect all the fingers
+	if(_transformModePrev == TRANSFORM_MODE::IDLE && duration > 0.5)	{
+		if(1 == _numExtendedFingers )
+		{
+			_transformMode = TRANSFORM_MODE::TRANSLATE;
 			ScaleFingers(frame);
 		}
-		if(_state == 1)	{
-			ComputeFingerInSphere(frame);
-			ChangeSpheres();
+		else if(5 == _numExtendedFingers )
+			_transformMode = TRANSFORM_MODE::ROTATE;
+		else if(2 == _numExtendedFingers )
+			_transformMode = TRANSFORM_MODE::SCALE;
 
-		}
 	}
+	if(_transformMode == TRANSFORM_MODE::TRANSLATE)	{
+		//if(_transformModePrev != TRANSFORM_MODE::TRANSLATE )
+		//ComputeFingerInSphere(frame);
+		Translate(frame);
+	}
+
+	//for (HandList::const_iterator hl = hands.begin(); hl != hands.end(); ++hl) {
+	//	// Get the first hand
+	//	const Hand hand = *hl;
+	//	//std::string handType = hand.isLeft() ? "Left hand" : "Right hand";
+	//	//std::cout << std::string(2, ' ') << handType << ", id: " << hand.id()
+	//	//          << ", palm position: " << hand.palmPosition() << std::endl;
+	//	//// Get the hand's normal vector and direction
+	//	//const Vector normal = hand.palmNormal();
+	//	//const Vector direction = hand.direction();
+
+	//	//// Calculate the hand's pitch, roll, and yaw angles
+	//	//std::cout << std::string(2, ' ') <<  "pitch: " << direction.pitch() * RAD_TO_DEG << " degrees, "
+	//	//          << "roll: " << normal.roll() * RAD_TO_DEG << " degrees, "
+	//	//          << "yaw: " << direction.yaw() * RAD_TO_DEG << " degrees" << std::endl;
+
+	//	// Get fingers
+	//	const FingerList fingers = hand.fingers();
+	//	std::vector<Vector> fingertips;
+	//	for (FingerList::const_iterator fl = fingers.begin(); fl != fingers.end(); ++fl) {
+	//		const Finger finger = *fl;
+	//		std::cout << std::string(4, ' ') <<  fingerNames[finger.type()]
+	//		<< " finger, id: " << finger.id()
+	//			<< ", length: " << finger.length()
+	//			<< "mm, width: " << finger.width() << std::endl;
+
+	//		// Get finger bones
+	//		for (int b = 0; b < 4; ++b) {
+	//			Bone::Type boneType = static_cast<Bone::Type>(b);
+	//			Bone bone = finger.bone(boneType);
+	//			std::cout << std::string(6, ' ') <<  boneNames[boneType]
+	//			<< " bone, start: " << bone.prevJoint()
+	//				<< ", end: " << bone.nextJoint()
+	//				<< ", direction: " << bone.direction() << std::endl;
+	//		}
+	//		fingertips.push_back(finger.bone(Leap::Bone::Type::TYPE_DISTAL).nextJoint());
+	//	}
+
+	//	_statePrev = _state;
+	//	if(hand.grabStrength() > 0.9)
+	//		_state = 1;
+	//	else
+	//		_state = 0;
+
+	//	if(_statePrev == 0 && _state == 1)	{
+	//		ScaleFingers(frame);
+	//	}
+	//	if(_state == 1)	{
+	//		ComputeFingerInSphere(frame);
+	//		ChangeSpheres();
+
+	//	}
+	//}
 
 }
 
@@ -186,6 +246,15 @@ void SphericalCursor::DrawFingersInSphere()
 	glPopMatrix();
 
 	gluDeleteQuadric(quadric); 
+}
+
+std::string SphericalCursor::GetMsg()
+{
+	//std::string ret;
+	std::stringstream ss;
+	ss<<"number of stretched fingers:"<< _numExtendedFingers<<"\n";
+	ss<<"Mode:"<<_transformMode<<"\n";
+	return ss.str();
 }
 
 
@@ -215,7 +284,8 @@ void SphericalCursor::Draw()
 
 SphericalCursor::SphericalCursor()
 {
-	_state = 0;
+	_transformMode = TRANSFORM_MODE::IDLE;
+	_transformModePrev = TRANSFORM_MODE::IDLE;
 }
 
 SphericalCursor::~SphericalCursor()

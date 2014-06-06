@@ -314,6 +314,8 @@ void OpenGLCanvas:: renderOpenGL2D()
 		g.setFont( static_cast<float>(iFontSize) );
 
 		g.setColour( Colours::salmon );
+		m_strPrompt.clear();
+		m_strPrompt.append(_sc.GetMsg(), 100);
 		g.drawMultiLineText(  m_strPrompt,
 			iMargin,
 			rectBounds.getBottom() - (iFontSize + iFontSize + iLineStep),
@@ -746,7 +748,7 @@ void OpenGLCanvas::drawPointables( Leap::Frame frame )
 		const FingerList fingers = hand.fingers();
 		for (FingerList::const_iterator fl = fingers.begin(); fl != fingers.end(); ++fl) {
 			const Finger finger = *fl;
-			Leap::Vector vStartPos   = m_mtxFrameTransform.transformPoint( finger.bone(Bone::Type::TYPE_DISTAL).nextJoint() * m_fFrameScale );
+			Leap::Vector vStartPos   = m_mtxFrameTransform.transformPoint( finger.tipPosition() * m_fFrameScale );
 
 			stringstream ss;
 			ss<<"x:"<< finger.bone(Bone::Type::TYPE_DISTAL).center().x;
