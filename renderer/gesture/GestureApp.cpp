@@ -602,7 +602,7 @@ void OpenGLCanvas::renderOpenGL()
 
 
 	// draw fingers/tools as lines with sphere at the tip.
-	drawPointables( frame );
+//	drawPointables( frame );
 
 	_sc.Draw();
 

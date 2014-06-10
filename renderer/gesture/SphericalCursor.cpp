@@ -127,6 +127,18 @@ void SphericalCursor::Translate(const Leap::Frame frame)
 	}
 }
 
+void SphericalCursor::Rotate(const Leap::Frame frame)
+{
+	_handDirPrev = _handDir;
+	_handDir = frame.hands().leftmost().direction();
+	;
+	//Leap::Vector moveDir = _handDir - _handDirPrev;
+	Leap::Vector rotAxis = _handDir.cross(_handDirPrev);
+	float rotAng = _handDir.angleTo(_handDirPrev );
+
+	Leap::Matrix rotMat(rotAxis, rotAng);
+	_rotationMatrix = frame.hands().leftmost().rotationMatrix(_framePrev) * _rotationMatrix ;
+}
 
 std::vector<Leap::Vector> SphericalCursor::GetFingerTipsInSphere()
 {
@@ -171,7 +183,10 @@ void SphericalCursor::FingerInput(Leap::Frame frame)
 		//ComputeFingerInSphere(frame);
 		Translate(frame);
 	}
-
+	else if(_transformMode == TRANSFORM_MODE::ROTATE)	{
+		Rotate(frame);
+	}
+	_framePrev = frame;
 	//for (HandList::const_iterator hl = hands.begin(); hl != hands.end(); ++hl) {
 	//	// Get the first hand
 	//	const Hand hand = *hl;
@@ -270,6 +285,8 @@ void SphericalCursor::Draw()
 	gluQuadricDrawStyle(quadric, GLU_SILHOUETTE);
 	glPushAttrib( GL_LIGHTING_BIT );
 	glDisable(GL_LIGHTING);
+
+	glMultMatrixf(_rotationMatrix.toArray4x4().m_array);
 
 	gluSphere( quadric , _radiusIn, 16 , 16 );
 	//gluSphere( quadric , _radiusOut, 16 , 16 );

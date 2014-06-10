@@ -31,6 +31,7 @@ public:
 	void FingerInput(Leap::Frame frame);
 	void ComputeFingerInSphere(const Leap::Frame frame);
 	void Translate(const Leap::Frame frame);
+	void Rotate(const Leap::Frame frame);
 	void ScaleFingers(const Leap::Frame frame);
 	std::vector<Leap::Vector> GetFingerTipsInSphere();
 	Leap::Vector GetHandCenter();
@@ -55,5 +56,9 @@ private:
 	TRANSFORM_MODE _transformModePrev;
 	int _numExtendedFingers;
 	std::clock_t _start;
+	Leap::Vector _handDir;
+	Leap::Vector _handDirPrev;
+	Leap::Matrix _rotationMatrix;
+	Leap::Frame _framePrev;
 };
 #endif
