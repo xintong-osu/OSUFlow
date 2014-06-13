@@ -151,6 +151,12 @@ float3 DataMgr::ConvertCoordinates(float3 v)	{
 	return make_float3((v.x - len[0] * 0.5)/ len[0], (v.y  - len[1] * 0.5)/ len[1], (v.z  - len[2] * 0.5)/ len[2]);
 }
 
+
+float3 DataMgr::CoordsRelative2Data(float3 v)
+{
+	return make_float3(v.x * len[0], v.y * len[1], v.z * len[2]);
+}
+
 //float3 DataMgr::ConvertCoordinates(VECTOR3 v)	{
 //	return VECTOR3((v[0] - len[0] * 0.5)/ len[0], (v[1]  - len[1] * 0.5)/ len[1], (v[2]  - len[2] * 0.5)/ len[2]);
 //}

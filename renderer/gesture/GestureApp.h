@@ -96,6 +96,8 @@ public:
 
 	void drawFingerTrace();
 
+	void DrawSphere(float3 pData);
+
 	void drawPointables( Leap::Frame frame );
 
 	virtual void onInit(const Leap::Controller&) 

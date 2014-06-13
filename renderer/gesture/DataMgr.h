@@ -14,6 +14,7 @@ public:
 	void compute_streamlines() ;
 	//VECTOR3 ConvertCoordinates(VECTOR3 v);
 	float3 ConvertCoordinates(VECTOR3 v);
+	float3 CoordsRelative2Data(float3 v);
 	void ClearSeeds();
 	void InsertSeed(VECTOR3 v);
 	VECTOR3 ConvCoordsLeap2Data(float x, float y, float z);

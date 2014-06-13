@@ -602,7 +602,17 @@ void OpenGLCanvas::renderOpenGL()
 
 
 	// draw fingers/tools as lines with sphere at the tip.
-//	drawPointables( frame );
+	//drawPointables( frame );
+	Leap::Vector pRel = RelativePalm3DLoc(m_lastFrame);
+	float3 p = _dm.CoordsRelative2Data(make_float3(pRel.x, pRel.y, pRel.z));
+
+	DrawSphere(p);
+	stringstream ss;
+	m_strCoordinates = "";
+	ss<<"xRel:"<< pRel.x<<"\n";
+	ss<<", yRel:"<< pRel.y<<"\n";
+	ss<<", zRel:"<< pRel.z<<"\n";
+	m_strCoordinates.append(ss.str(), 100);
 
 	_sc.Draw();
 
@@ -721,6 +731,22 @@ void OpenGLCanvas::drawFingerTrace()
 		glVertex3f(p.x , p.y , p.z);
 	}
 	glEnd(); 
+}
+
+void OpenGLCanvas::DrawSphere(float3 pData)
+{
+	float3 pGL = CoordsData2GL(pData);
+	LeapUtilGL::GLMatrixScope matrixScope;
+
+	glTranslatef( pGL.x, pGL.y, pGL.z );
+	float fScale = 0.01;
+	glScalef( fScale, fScale, fScale );
+
+//	glBegin(GL_POINTS);
+	//glVertex3f(pGL.x, pGL.y, pGL.z );
+	//glEnd();
+
+	LeapUtilGL::drawSphere( LeapUtilGL::kStyle_Solid );
 }
 
 

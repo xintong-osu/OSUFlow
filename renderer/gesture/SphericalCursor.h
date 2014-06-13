@@ -15,6 +15,8 @@ enum TRANSFORM_MODE
 	IDLE,
 };
 
+Leap::Vector RelativePalm3DLoc(Leap::Frame frame);
+
 class SphericalCursor
 {
 public:

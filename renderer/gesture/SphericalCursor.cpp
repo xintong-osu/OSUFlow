@@ -9,6 +9,47 @@ using namespace Leap;
 const std::string fingerNames[] = {"Thumb", "Index", "Middle", "Ring", "Pinky"};
 const std::string boneNames[] = {"Metacarpal", "Proximal", "Middle", "Distal"};
 
+inline float Clamp(float v)
+{
+	v = v > 1.0f ? 1.0f : v;
+	v = v < 0.0f ? 0.0f : v;
+	return v;
+}
+
+inline Leap::Vector Clamp(Leap::Vector v)
+{
+	return Leap::Vector(Clamp(v.x), Clamp(v.y), Clamp(v.z));
+}
+
+Leap::Vector RelativePalm3DLoc(Leap::Frame frame)
+{
+	Leap::Hand leftHand = frame.hands().leftmost();
+	Leap::Hand rightHand = frame.hands().rightmost();
+	Leap::Vector palmCenter = leftHand.stabilizedPalmPosition();
+	float spaceSide = leftHand.palmWidth() * 2;
+	Leap::Vector dir = leftHand.direction().normalized();
+	Leap::Finger middleFinger = leftHand.fingers().fingerType(Leap::Finger::Type::TYPE_MIDDLE).frontmost();
+	Leap::Vector middleFingerTip = middleFinger.stabilizedTipPosition();
+	Leap::Vector palmNormal = leftHand.palmNormal();
+	Leap::Vector yDir = palmNormal.cross(dir).normalized();
+	Leap::Vector origin = palmCenter - dir * spaceSide * 0.3 - yDir * spaceSide * 0.5;
+
+	Leap::Vector pointerTip = rightHand.fingers().fingerType(Leap::Finger::Type::TYPE_INDEX).frontmost().tipPosition();
+	Leap::Vector vecPalmCenter2Tip = pointerTip - palmCenter;
+	float dist2Palm = vecPalmCenter2Tip.dot(palmNormal.normalized());
+	//http://stackoverflow.com/questions/9605556/how-to-project-a-3d-point-to-a-3d-plane
+	Leap::Vector projTip = vecPalmCenter2Tip - dist2Palm * palmNormal + palmCenter;
+
+	Leap::Vector vecOrigin2ProjTip = projTip - origin;
+	Leap::Vector ret;
+	ret.x = vecOrigin2ProjTip.dot(dir) / spaceSide;
+	ret.y = vecOrigin2ProjTip.dot(yDir) / spaceSide;
+	ret.z = (dist2Palm - 50) / spaceSide;
+
+
+	return Clamp(ret);
+}
+
 static int GetNumOfExtendedFingers(const FingerList fingers)
 {
 	int extendedFingers = 0;
@@ -75,8 +116,6 @@ void SphericalCursor::FingerInput(float3 v0, float3 v1, float3 v2, float3 v3, fl
 void SphericalCursor::ScaleFingers(const Leap::Frame frame)//std::vector<Leap::Vector> v)
 {
 	const FingerList fingers = frame.hands().leftmost().fingers();
-	//Leap::Vector f1 = fingers.leftmost().tipPosition();
-	//Leap::Vector f2 = fingers.rightmost().tipPosition();
 	_translate = GetExtendedFinger(fingers).tipPosition();//fingers[2].bone(Leap::Bone::Type::TYPE_PROXIMAL).prevJoint();//(f1 + f2) * 0.5;
 	_scale = (_radiusIn + _radiusOut) / frame.hands().leftmost().palmWidth();
 	_centerFixed = _center;
@@ -93,26 +132,11 @@ Leap::Vector SphericalCursor::CoordsGlobal2Local(Leap::Vector v)
 void SphericalCursor::ComputeFingerInSphere(const Leap::Frame frame)
 {
 	const FingerList fingers = frame.hands().leftmost().fingers();
-	/*Leap::Vector f1 = fingers.leftmost().tipPosition();
-	Leap::Vector f2 = fingers.rightmost().tipPosition();*/
-	//_fingersInSphere.clear();
-	//for (FingerList::const_iterator fl = fingers.begin(); fl != fingers.end(); ++fl) {
-	//	const Finger finger = *fl;
-	//	_fingersInSphere.push_back((finger.tipPosition() - _translate) * _scale + _centerFixed);
-	//}
 	_handCenter = CoordsGlobal2Local(fingers[2].bone(Leap::Bone::Type::TYPE_PROXIMAL).prevJoint());
 }
 
 void SphericalCursor::Translate(const Leap::Frame frame)
 {
-	//for(int i = 0; i < _fingersInSphere.size(); i++)	{
-	//	if(_fingersInSphere[i].distanceTo(_center) > _radiusOut)	{
-	//		float moveAmount = _fingersInSphere[i].distanceTo(_center) - _radiusOut;
-	//		Leap::Vector moveDir = (_fingersInSphere[i] - _center).normalized();
-	//		_center += (moveDir * moveAmount * 0.1);
-	//		break;
-	//	}
-	//}
 	FingerList fingers =  frame.hands().leftmost().fingers();
 	if(GetNumOfExtendedFingers(fingers )> 0)
 		_handCenter = CoordsGlobal2Local(GetExtendedFinger(fingers).tipPosition());
@@ -187,59 +211,6 @@ void SphericalCursor::FingerInput(Leap::Frame frame)
 		Rotate(frame);
 	}
 	_framePrev = frame;
-	//for (HandList::const_iterator hl = hands.begin(); hl != hands.end(); ++hl) {
-	//	// Get the first hand
-	//	const Hand hand = *hl;
-	//	//std::string handType = hand.isLeft() ? "Left hand" : "Right hand";
-	//	//std::cout << std::string(2, ' ') << handType << ", id: " << hand.id()
-	//	//          << ", palm position: " << hand.palmPosition() << std::endl;
-	//	//// Get the hand's normal vector and direction
-	//	//const Vector normal = hand.palmNormal();
-	//	//const Vector direction = hand.direction();
-
-	//	//// Calculate the hand's pitch, roll, and yaw angles
-	//	//std::cout << std::string(2, ' ') <<  "pitch: " << direction.pitch() * RAD_TO_DEG << " degrees, "
-	//	//          << "roll: " << normal.roll() * RAD_TO_DEG << " degrees, "
-	//	//          << "yaw: " << direction.yaw() * RAD_TO_DEG << " degrees" << std::endl;
-
-	//	// Get fingers
-	//	const FingerList fingers = hand.fingers();
-	//	std::vector<Vector> fingertips;
-	//	for (FingerList::const_iterator fl = fingers.begin(); fl != fingers.end(); ++fl) {
-	//		const Finger finger = *fl;
-	//		std::cout << std::string(4, ' ') <<  fingerNames[finger.type()]
-	//		<< " finger, id: " << finger.id()
-	//			<< ", length: " << finger.length()
-	//			<< "mm, width: " << finger.width() << std::endl;
-
-	//		// Get finger bones
-	//		for (int b = 0; b < 4; ++b) {
-	//			Bone::Type boneType = static_cast<Bone::Type>(b);
-	//			Bone bone = finger.bone(boneType);
-	//			std::cout << std::string(6, ' ') <<  boneNames[boneType]
-	//			<< " bone, start: " << bone.prevJoint()
-	//				<< ", end: " << bone.nextJoint()
-	//				<< ", direction: " << bone.direction() << std::endl;
-	//		}
-	//		fingertips.push_back(finger.bone(Leap::Bone::Type::TYPE_DISTAL).nextJoint());
-	//	}
-
-	//	_statePrev = _state;
-	//	if(hand.grabStrength() > 0.9)
-	//		_state = 1;
-	//	else
-	//		_state = 0;
-
-	//	if(_statePrev == 0 && _state == 1)	{
-	//		ScaleFingers(frame);
-	//	}
-	//	if(_state == 1)	{
-	//		ComputeFingerInSphere(frame);
-	//		ChangeSpheres();
-
-	//	}
-	//}
-
 }
 
 void SphericalCursor::DrawFingersInSphere()
