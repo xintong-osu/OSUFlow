@@ -97,6 +97,7 @@ public:
 	void drawFingerTrace();
 
 	void DrawSphere(float3 pData);
+	void DrawPolygon(vector<float3> polygon);
 
 	void drawPointables( Leap::Frame frame );
 

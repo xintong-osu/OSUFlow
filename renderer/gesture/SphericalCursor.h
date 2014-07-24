@@ -15,7 +15,21 @@ enum TRANSFORM_MODE
 	IDLE,
 };
 
+
+inline float Clamp(float v)
+{
+	v = v > 1.0f ? 1.0f : v;
+	v = v < 0.0f ? 0.0f : v;
+	return v;
+}
+
+inline Leap::Vector Clamp(Leap::Vector v)
+{
+	return Leap::Vector(Clamp(v.x), Clamp(v.y), Clamp(v.z));
+}
+
 Leap::Vector RelativePalm3DLoc(Leap::Frame frame);
+void RelativePlanePosition(Leap::Frame frame, Leap::Vector &planePt, Leap::Vector &planeNormal);
 
 class SphericalCursor
 {

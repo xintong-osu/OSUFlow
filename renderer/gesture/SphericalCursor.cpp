@@ -9,17 +9,6 @@ using namespace Leap;
 const std::string fingerNames[] = {"Thumb", "Index", "Middle", "Ring", "Pinky"};
 const std::string boneNames[] = {"Metacarpal", "Proximal", "Middle", "Distal"};
 
-inline float Clamp(float v)
-{
-	v = v > 1.0f ? 1.0f : v;
-	v = v < 0.0f ? 0.0f : v;
-	return v;
-}
-
-inline Leap::Vector Clamp(Leap::Vector v)
-{
-	return Leap::Vector(Clamp(v.x), Clamp(v.y), Clamp(v.z));
-}
 
 Leap::Vector RelativePalm3DLoc(Leap::Frame frame)
 {
@@ -47,7 +36,28 @@ Leap::Vector RelativePalm3DLoc(Leap::Frame frame)
 	ret.z = (dist2Palm - 50) / spaceSide;
 
 
-	return Clamp(ret);
+	return ret;
+}
+
+void RelativePlanePosition(Leap::Frame frame, Leap::Vector &planePt, Leap::Vector &planeNormal)
+{
+	Leap::Hand leftHand = frame.hands().leftmost();
+	Leap::Hand rightHand = frame.hands().rightmost();
+	Leap::Vector dirLeft = leftHand.direction().normalized();
+	Leap::Vector palmNormalLeft = leftHand.palmNormal().normalized();
+	Leap::Vector yDir = palmNormalLeft.cross(dirLeft).normalized();
+	
+	Leap::Vector rightNormal = rightHand.palmNormal().normalized();
+	planeNormal.x = rightNormal.dot(dirLeft);
+	planeNormal.y = rightNormal.dot(yDir);
+	planeNormal.z = rightNormal.dot(palmNormalLeft);
+	planeNormal = planeNormal.normalized();
+	planePt = Clamp(RelativePalm3DLoc(frame));
+}
+
+
+void RelativeFingerOrientation()
+{
 }
 
 static int GetNumOfExtendedFingers(const FingerList fingers)

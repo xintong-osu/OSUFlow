@@ -29,6 +29,106 @@ using namespace Leap;
 //	glPopAttrib();
 //}
 
+
+// OutVD > 0 means ray is back-facing the plane
+// returns false if there is no intersection because ray is perpedicular to plane
+bool ray_to_plane(const float3 &RayOrig, const float3 &RayDir, const float4 &Plane, float *OutT, float *OutVD)
+{
+	*OutVD = Plane.x * RayDir.x + Plane.y * RayDir.y + Plane.z * RayDir.z;
+	if (*OutVD == 0.0f)
+		return false;
+	*OutT = - (Plane.x * RayOrig.x + Plane.y * RayOrig.y + Plane.z * RayOrig.z + Plane.w) / *OutVD;
+	return true;
+}
+
+// Maximum out_point_count == 6, so out_points must point to 6-element array.
+// out_point_count == 0 mean no intersection.
+// out_points are not sorted.
+void calc_plane_aabb_intersection_points(const float4 &plane,
+										 const float3 &aabb_min, const float3 &aabb_max,
+										 float3 *out_points, unsigned &out_point_count)
+{
+	out_point_count = 0;
+	float vd, t;
+
+	// Test edges along X axis, pointing right.
+	float3 dir = make_float3(aabb_max.x - aabb_min.x, 0.f, 0.f);
+	float3 orig = aabb_min;
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_min.x, aabb_max.y, aabb_min.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_min.x, aabb_min.y, aabb_max.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_min.x, aabb_max.y, aabb_max.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+
+	// Test edges along Y axis, pointing up.
+	dir = make_float3(0.f, aabb_max.y - aabb_min.y, 0.f);
+	orig = make_float3(aabb_min.x, aabb_min.y, aabb_min.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_max.x, aabb_min.y, aabb_min.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_min.x, aabb_min.y, aabb_max.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_max.x, aabb_min.y, aabb_max.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+
+	// Test edges along Z axis, pointing forward.
+	dir = make_float3(0.f, 0.f, aabb_max.z - aabb_min.z);
+	orig = make_float3(aabb_min.x, aabb_min.y, aabb_min.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_max.x, aabb_min.y, aabb_min.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_min.x, aabb_max.y, aabb_min.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+	orig = make_float3(aabb_max.x, aabb_max.y, aabb_min.z);
+	if (ray_to_plane(orig, dir, plane, &t, &vd) && t >= 0.f && t <= 1.f)
+		out_points[out_point_count++] = orig + dir * t;
+}
+
+void sort_points(float3 *points, unsigned point_count, const float4 &plane)
+{
+	if (point_count == 0) return;
+
+	const float3 plane_normal = make_float3(plane.x, plane.y, plane.z);
+	const float3 origin = points[0];
+
+	std::sort(points, points + point_count, [&](const float3 &lhs, const float3 &rhs) -> bool {
+		float3 v;
+		v = cross((lhs - origin), (rhs - origin));
+		return dot(v, plane_normal) < 0;
+	} );
+}
+
+static void ComputePlanePolygon(Leap::Vector planePt, Leap::Vector planeNormal, vector<float3> &polygon)
+{
+	float4 plane;
+	plane.x = planeNormal.x;
+	plane.y = planeNormal.y;
+	plane.z = planeNormal.z;
+	plane.w = - (planeNormal.x * planePt.x + planeNormal.y * planePt.y + planeNormal.z * planePt.z);
+	float3 out_points[6];
+	float3 aabb_min = make_float3(0.0f, 0.0f, 0.0f);
+	float3 aabb_max = make_float3(1.0f, 1.0f, 1.0f);
+	unsigned int out_point_count = 0;
+	calc_plane_aabb_intersection_points(plane, aabb_min, aabb_max, out_points, out_point_count);
+	sort_points(out_points, out_point_count, plane);
+	for(int i = 0; i < out_point_count; i++	)	{
+		polygon.push_back(out_points[i]);
+	}
+}
+
 inline void drawBBox(float3 minLen, float3 maxLen)//float3 v[8])//v0, float3 v1, float3 v2, float3 v3, float3 v4, float3 v5, float3 v6, float3 v7)
 {
 	static const float s_afCorners[8][3] = {
@@ -258,6 +358,16 @@ bool OpenGLCanvas::keyPressed( const KeyPress& keyPress )
 		break;
 	case 'T':
 		_mode = 5;
+		break;
+	case 'Y':
+		_mode = 6;
+		break;
+	case 'U':
+		_mode = 7;
+		break;
+	case 'I':
+		_mode = 8;
+		break;
 	case 'C':
 		_fingerTrace.clear();
 		break;
@@ -430,6 +540,13 @@ inline vector<float3> StablizeFingerTips(vector<float3> v)
 	return ret;
 }
 
+Leap::Vector AwayFromCenterRelative(Leap::Vector v)
+{
+	Leap::Vector center = Leap::Vector(0.5, 0.5, 0.5);
+	Leap::Vector diff = v - center;
+	return center + 20 * diff;
+}
+
 void OpenGLCanvas::renderOpenGL()
 {
 	{
@@ -452,6 +569,11 @@ void OpenGLCanvas::renderOpenGL()
 	LeapUtilGL::GLMatrixScope sceneMatrixScope;
 
 	setupScene();
+
+	Leap::Vector planePt, planeNormal;
+	RelativePlanePosition(frame, planePt, planeNormal);
+	Leap::Vector pRel = RelativePalm3DLoc(m_lastFrame);
+
 
 	vector<float3> rack;
 	// draw the grid background
@@ -545,6 +667,41 @@ void OpenGLCanvas::renderOpenGL()
 			CoordsData2GLVector(sls);
 			_slFingers->UpdateData(m_openGLContext, &sls);
 			_slFingers->draw(m_openGLContext);//, _attributes);
+			_sc.Draw();
+			break;
+		}
+	case 6:
+		{
+			Leap::Vector pRelClamp = Clamp(pRel);
+			float3 p = _dm.CoordsRelative2Data(make_float3(pRelClamp.x, pRelClamp.y, pRelClamp.z));
+			DrawSphere(p);
+			break;
+		}
+	case 7:
+		{
+			vector<float3> polygon;
+			ComputePlanePolygon(planePt, planeNormal, polygon);
+			for(int i = 0; i < polygon.size(); i++)	{
+				polygon[i] = _dm.CoordsRelative2Data(polygon[i]);
+			}
+			DrawPolygon(polygon);
+			break;
+		}
+	case 8:
+		{
+			pRel = AwayFromCenterRelative(Clamp(pRel));
+			//pRel.x = 0.5;
+			//pRel.y = 0.5;
+			float3 pGL = CoordsData2GL(_dm.CoordsRelative2Data(make_float3(pRel.x, pRel.y, pRel.z)));//0.5,0.5,10)));//
+
+			float3 target = CoordsData2GL(_dm.GetDataCenter());
+			Leap::Vector upDir =  - planeNormal;
+			float3 upDirGL = CoordsData2GL(_dm.CoordsRelative2Data(make_float3(upDir.x, upDir.y, upDir.z)));
+			upDirGL = normalize(upDirGL);
+			//			float3 upDirGL = make_float3(0,1,0);
+			m_camera.SetPOVLookAt(Leap::Vector(pGL.x, pGL.y, pGL.z), Leap::Vector(target.x, target.y, target.z), Leap::Vector(upDirGL.x, upDirGL.y, upDirGL.z));
+			//m_camera.SetPosition(Leap::Vector(pGL.x, pGL.y, pGL.z));
+			//m_camera.SetOrbitTarget(Leap::Vector(target.x, target.y, target.z));
 			break;
 		}
 	default:
@@ -603,10 +760,8 @@ void OpenGLCanvas::renderOpenGL()
 
 	// draw fingers/tools as lines with sphere at the tip.
 	//drawPointables( frame );
-	Leap::Vector pRel = RelativePalm3DLoc(m_lastFrame);
-	float3 p = _dm.CoordsRelative2Data(make_float3(pRel.x, pRel.y, pRel.z));
+	//Leap::Vector pRel = RelativePalm3DLoc(m_lastFrame);
 
-	DrawSphere(p);
 	stringstream ss;
 	m_strCoordinates = "";
 	ss<<"xRel:"<< pRel.x<<"\n";
@@ -614,7 +769,11 @@ void OpenGLCanvas::renderOpenGL()
 	ss<<", zRel:"<< pRel.z<<"\n";
 	m_strCoordinates.append(ss.str(), 100);
 
-	_sc.Draw();
+
+
+
+
+
 
 	{
 		ScopedLock renderLock(m_renderMutex);
@@ -742,11 +901,24 @@ void OpenGLCanvas::DrawSphere(float3 pData)
 	float fScale = 0.01;
 	glScalef( fScale, fScale, fScale );
 
-//	glBegin(GL_POINTS);
+	//	glBegin(GL_POINTS);
 	//glVertex3f(pGL.x, pGL.y, pGL.z );
 	//glEnd();
 
 	LeapUtilGL::drawSphere( LeapUtilGL::kStyle_Solid );
+}
+
+void OpenGLCanvas::DrawPolygon(vector<float3> polygon)
+{
+	LeapUtilGL::GLMatrixScope matrixScope;
+
+	glBegin(GL_LINE_LOOP);
+	for(int i = 0; i < polygon.size(); i++)	{
+		float3 pGL = CoordsData2GL(polygon[i]);
+		glVertex3f(pGL.x, pGL.y, pGL.z );
+	}
+	glEnd();
+
 }
 
 
