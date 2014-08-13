@@ -9,7 +9,7 @@
 #include <VectorMatrix.h>
 
 #define HULL_SIZE 128
-#define TEST_PERFORMANCE 3
+#define TEST_PERFORMANCE -1
 //2: the _Draw() function and deformation kernel
 //#define MAX_HULL_POINT_NUM 128
 

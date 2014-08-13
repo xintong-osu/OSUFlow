@@ -144,6 +144,12 @@ enum EGcbParameterName{
 	GCB_ROTATE_CAMERA_SPEED, 
 	GCB_ZOOM_CAMERA_SPEED, 
 };
+
+enum GESTURE{
+	SPAN,
+	SQUEEZE,
+	NO_GESTURE,
+};
 void gcbSetFloating(EGcbParameterName eName, float fValue);
 // ADD-BY-LEETEN 10/01/2010-END
 
@@ -180,6 +186,9 @@ void gcbMouseFunc(void (*_MyMouseFunc)(int, int, int, int));
 void gcbMotionFunc(void (*_MyMotionFunc)(int, int));
 void gcbPassiveMotionFunc(void (*_PassiveMyMotionFunc)(int, int));
 void gcbMouseWheelFunc(void (*_MyMouseWheelFunc)(int, int, int, int));
+void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE));
+void gcbMultiEntryFunc(void (*_MyMultiEntryFunc)(int, int));
+void SetDisableTransformation(bool b);
 //ADD-BY-TONG 02/13/2013-END
 
 #endif	// __GLUT_CALLBACK_H__

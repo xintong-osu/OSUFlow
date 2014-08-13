@@ -587,13 +587,13 @@ CLineRendererInOpenGLDeform::_Draw()
 	if(bIsHaloEnabled )
 	{
 		// pass 1: draw the halo
-		glLineWidth(cHalo.fWidth);
+		glLineWidth(cHalo.fWidth * 2 );
 		for(int il = 0; il < streamLengthsRender.size(); il++)
 		{
 			VECTOR4 haloColor;
-			if(_deformLine.GetLinePicked(il))
-				haloColor = VECTOR4(cyan[0], cyan[1], cyan[2], 0.5f);
-			else
+			//if(_deformLine.GetLinePicked(il))
+			//	haloColor = VECTOR4(cyan[0], cyan[1], cyan[2], 0.5f);
+			//else
 				haloColor = VECTOR4(cHalo.v4Color[0], cHalo.v4Color[1], cHalo.v4Color[2], 0.5f);
 			
 			glUniform4fv(g_loc_color, 1, &haloColor[0]);
@@ -606,7 +606,7 @@ CLineRendererInOpenGLDeform::_Draw()
 		glDepthFunc(GL_LEQUAL);
 	}
 
-	glLineWidth(cLine.fWidth);
+	glLineWidth(cLine.fWidth * 2 );
 	
 	for(int il = 0; il < streamLengthsRender.size(); il++)
 	{
@@ -619,15 +619,17 @@ CLineRendererInOpenGLDeform::_Draw()
 
 	//draw other features 
 	//draw lens center
+	glLineWidth(2);
 	glUseProgram(0);
-
-	if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LOCATION)
-	{
-		VECTOR3 cubeMin, cubeMax;
-		_deformLine.GetPickCube(cubeMin, cubeMax);
-		glColor4f(0.0f, 1.0f, 0.145f, 0.5f);
-		Draw3DCube(cubeMin, cubeMax);
-	}
+	
+	if(_showCube)
+		if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LOCATION)
+		{
+			VECTOR3 cubeMin, cubeMax;
+			_deformLine.GetPickCube(cubeMin, cubeMax);
+			glColor4f(0.0f, 1.0f, 0.145f, 0.5f);
+			Draw3DCube(cubeMin, cubeMax);
+		}
 
 	if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LENS)
 	{
@@ -700,6 +702,17 @@ CLineRendererInOpenGLDeform::_Draw()
 #endif
 }
 
+void CLineRendererInOpenGLDeform::ToggleShowCube()
+{
+	_showCube = !_showCube;
+}
+
+void CLineRendererInOpenGLDeform::SetShowCube(bool b)
+{
+	_showCube = b;
+}
+
+
 void CLineRendererInOpenGLDeform::DrawHull(std::vector<hull_type> hull)
 {
 	//glBegin(GL_LINE_LOOP);
@@ -768,7 +781,7 @@ void CLineRendererInOpenGLDeform::DrawEllipse()
 
 inline float BladesWidth(float a, float b, float dist2Center)
 {
-	return b * ( tanh(- 10.0 * dist2Center/ a + 8.0) + 1) * 0.5;
+	return b * ( tanh(- 13.0 * dist2Center/ a + 11) + 1) * 0.5;
 }
 
 void CLineRendererInOpenGLDeform::DrawBlinds()
@@ -953,7 +966,7 @@ CLineRendererInOpenGLDeform::_Update()
 	//ADD-BY-TONG 02/12/2013-BEGIN
 	//cout<<"cVertexArray.iNrOfVertices"<<cVertexArray.iNrOfVertices<<endl;
 	_deformLine.setData(cVertexArray.pfCoords, cVertexArray.iNrOfVertices, pviGlPrimitiveBases, pviGlPrimitiveLengths);
-	_bundle = _deformLine.getBundle();
+	//_bundle = _deformLine.getBundle();
 
 	InitGL();
 	AllocGLBuffer();
@@ -961,7 +974,7 @@ CLineRendererInOpenGLDeform::_Update()
 	//cout<<"*3"<<endl;
 
 
-	_deformLine.PickBundle(-1); //11
+	_deformLine.RestoreAllStream(); //11
 	_deformLine.setMatrix(tModelViewMatrix, tProjectionMatrix, piViewport);
 	//cout<<"*4"<<endl;
 
@@ -974,7 +987,7 @@ CLineRendererInOpenGLDeform::_Update()
 	
 	//picking window 
 	PickWin pw(NULL, NULL);
-	pw.LoadData(_deformLine.GetPrimitiveBases()->at(0), &pviGlPrimitiveBases, &pviGlPrimitiveLengths, _bundle,
+	pw.LoadData(_deformLine.GetPrimitiveBases()->at(0), &pviGlPrimitiveBases, &pviGlPrimitiveLengths, _deformLine.getBundle(),
 		g_vbo_pfCoords_static, g_vbo_tangent, currc, this);
 	pw.ShowPanels();
 //#endif
@@ -993,6 +1006,7 @@ CLineRendererInOpenGLDeform::CLineRendererInOpenGLDeform(void)
 	_newCutLine = false;
 	_cutLine[0] = VECTOR2(0, 0);
 	_cutLine[1] = VECTOR2(0, 0);
+	_showCube = true;
 //	_CtrlPnl = new ControlPanel;
 //	_CtrlPnl->show();
 }
@@ -1011,6 +1025,7 @@ void CLineRendererInOpenGLDeform::SetCutLineCoords(VECTOR2 startPoint, VECTOR2 e
 void CLineRendererInOpenGLDeform::CutLineFinish()
 {
 	_deformLine.SetLensAxis(_cutLine[0], _cutLine[1]);
+	SetNewCutLine(false);
 }
 
 void CLineRendererInOpenGLDeform::SetDeformOn(bool b)

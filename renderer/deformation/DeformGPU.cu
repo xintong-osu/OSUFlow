@@ -370,7 +370,7 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 	float2 v_screen = pos_screen[i];
 	float2 orig_screen= Object2Screen(origPos[i]);
 	float2 forceAll= make_float2(0, 0);
-	float moveSpeed = 0.005;
+	float moveSpeed = 0.01;
 	const float transRatio = 0.2;
 	float generalSize = (ellipseSet[0].a + ellipseSet[0].b) * 0.5;
 
@@ -394,40 +394,43 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 
 		float radius;
 		if(DEFORM_MODE::MODE_ELLIPSE == deformMode)
-			radius = radius_ellipse(e, dir2Center);
+			radius = 1.2 * radius_ellipse(e, dir2Center);
 		else if(DEFORM_MODE::MODE_HULL == deformMode)
-			radius = radius_hull(hullSet[ie], center, v_screen);
+			radius = 1.2 * radius_hull(hullSet[ie], center, v_screen);
 		else if(DEFORM_MODE::MODE_LINE == deformMode)
 		{
 			//radius = length(v_screen - center) * sin(e.angle);
 			//float ang = e.angle - atan2(v_screen.y, v_screen.x);
-			float parallelDist = length(center - make_float2(e.x, e.y));
-			radius = e.b * ( tanh(- 10.0 * parallelDist / e.a + 8.0) + 1) * 0.5;
+			float parallelDist = 0.85 * length(center - make_float2(e.x, e.y));
+			radius = 1.25 * e.b * ( tanh(- 8.0 * parallelDist / e.a + 6.0) + 1) * 0.5;
 		}
 		//float transWidth = generalSize * transRatio; //size of transition region, _d_ / _r_
 		float r = 0.5;
 		radiusOuterAll[ie] = radius / r;// (radius + transWidth) ;
 		
-		if(dist2Center < radiusOuterAll[ie] && lineIndex[i] >= 0)
+		if(dist2Center <= radiusOuterAll[ie] && lineIndex[i] >= 0)
 		{
 			
 			//force from neighboring vertices
-			if(i != 0 && i != (_nv - 1))
+			if(deformMode != DEFORM_MODE::MODE_LINE)
 			{
-				if((lineIndex[i] == lineIndex[i + 1]) && (lineIndex[i] == lineIndex[i - 1])) //if it is not the first vertex or last vertex on the line
+				if(i != 0 && i != (_nv - 1))
 				{
-					float2 pre_v1_screen = Object2Screen(prevPos[i + 1]);//projection * modelview * v;
-					float2 pre_v_1_screen = Object2Screen(prevPos[i - 1]);//projection * modelview * v;
-					float2 edge_v1 = pre_v1_screen - v_screen;
-					float2 edge_v_1 = pre_v_1_screen - v_screen;// mul(10,minus(pre_v_1_screen, v));
-					float edgeLength_v1 = length(edge_v1);
-					float edgeLength_v_1 = length(edge_v_1);
-					// if the parameter is too small, the lines are jaggy
-					// if the parameter is too large, the lines tend to be straight
-					if(edgeLength_v1 > (edgeLength_v_1 * 1.001) )
-						forceAll += edge_v1 * 8;	
-					else if(edgeLength_v_1 > (edgeLength_v1 * 1.001) )
-						forceAll += edge_v_1 * 8;
+					if((lineIndex[i] == lineIndex[i + 1]) && (lineIndex[i] == lineIndex[i - 1])) //if it is not the first vertex or last vertex on the line
+					{
+						float2 pre_v1_screen = Object2Screen(prevPos[i + 1]);//projection * modelview * v;
+						float2 pre_v_1_screen = Object2Screen(prevPos[i - 1]);//projection * modelview * v;
+						float2 edge_v1 = pre_v1_screen - v_screen;
+						float2 edge_v_1 = pre_v_1_screen - v_screen;// mul(10,minus(pre_v_1_screen, v));
+						float edgeLength_v1 = length(edge_v1);
+						float edgeLength_v_1 = length(edge_v_1);
+						// if the parameter is too small, the lines are jaggy
+						// if the parameter is too large, the lines tend to be straight
+						if(edgeLength_v1 > (edgeLength_v_1 * 1.001) )
+							forceAll += edge_v1 * 2;	
+						else if(edgeLength_v_1 > (edgeLength_v1 * 1.001) )
+							forceAll += edge_v_1 * 2;
+					}
 				}
 			}
 		

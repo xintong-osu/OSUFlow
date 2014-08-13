@@ -36,59 +36,49 @@ int frameCount;
 int currentTime;
 int previousTime;
 float fps;
-//#include <GL\glew.h>
-//ADD-BY-TONG 02/15/2013-END
-
-
 
 #include <list>
-#include <iterator>
-
-//#include "gcb.h"
 #include "gcb2.h"
 #include "OSUFlow.h"
 #include "TimeLineRendererInOpenGLDeform.h"
-//#include "LineRendererInOpenGLDeform.h"
 #include "StreamDeform.h"
-//#include <QApplication>
+#include "GL\glui.h"
 
-
-char *szVecFilePath;
 OSUFlow *osuflow; 
 VECTOR4 minLen, maxLen; 
 list<vtListTimeSeedTrace*> sl_list; 
-float center[3], len[3]; 
-list<VECTOR4> liv4Colors;
-int argc = 0;
-char **argv;
-//QApplication app(argc, argv);
 CTimeLineRendererInOpenGLDeform cLineRenderer;
 
-int deformWindowId;
-bool _dragLens;
-bool _dragLensEndPt;
+int deformWindowId;		//for timer function
+//bool _dragLens;
+//bool _dragLensEndPt;
 VECTOR2 _dragStartPos;
-VECTOR2 _dragStartPosLine;
-VECTOR2 _dragCurrentPosLine;
+VECTOR2 _dragPrevPos;
+//VECTOR2 _dragCurrentPosLine;
+int method_type = 0;
+int shapeModelRadioOption = 0;
+int _showCubeGCB = 1;
 
+set<int> _deviceId;
+map<int, vector<VECTOR2>> _touchCoords;
 
-//
-//void InitializeOpenGLExtensions()
-//{
-//	GLenum err = glewInit();
-//	if (GLEW_OK != err)
-//	{
-//	  /* Problem: glewInit failed, something is seriously wrong. */
-//	  fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
-//	  throw "Error initializing GLEW";
-//	}
-//	if (!GLEW_VERSION_2_1)
-//	{
-//		throw "Fatal Error: OpenGL 2.1 is required";
-//	}
-//
-//	fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
-//}
+enum
+{
+	REDO_DEFORM_ID,
+	CUT_LINE_ID,
+	X_INCREASE_ID,
+	X_DECREASE_ID,
+	Y_INCREASE_ID,
+	Y_DECREASE_ID,
+	Z_INCREASE_ID,
+	Z_DECREASE_ID,
+	METHOD_TYPE_ID,
+	SHAPE_MODEL_ID,
+	SHOW_CUBE_ID,
+	//LENS_ID,
+	//LOCATION_ID,
+};
+
 
 //-------------------------------------------------------------------------
 // Calculates the frames per second
@@ -118,28 +108,6 @@ void calculateFPS()
 		//  Reset frame count
 		frameCount = 0;
     }
-}
-
-
-////////////////////////////////////////////////////////////////////////////
-void assignColors() 
-{
-	for(int i = 0; i < sl_list.size(); i++)
-	{
-		VECTOR4 v4Color;
-		switch((i/2)%7)
-		{
-		case 0: v4Color = VECTOR4(1.0f, 0.0f, 0.0f, 1.0f);	break;
-		case 1: v4Color = VECTOR4(0.0f, 1.0f, 0.0f, 1.0f);	break;
-		case 2: v4Color = VECTOR4(0.0f, 0.0f, 1.0f, 1.0f);	break;
-		case 3: v4Color = VECTOR4(1.0f, 1.0f, 0.0f, 1.0f);	break;
-		case 4: v4Color = VECTOR4(1.0f, 0.0f, 1.0f, 1.0f);	break;
-		case 5: v4Color = VECTOR4(0.0f, 1.0f, 1.0f, 1.0f);	break;
-		case 6: v4Color = VECTOR4(1.0f, 1.0f, 1.0f, 1.0f);	break;
-		}
-		liv4Colors.push_back(v4Color);
-	}
-	cLineRenderer._Update();
 }
 
 void readTraceFile(char* fileName)
@@ -232,145 +200,55 @@ void draw_streamlines()
 void
 _SpecialFunc(int skey, int x, int y)
 {
-	DIRECTION dir;
-	switch(skey)
-	{
-	case GLUT_KEY_LEFT:
-		dir = DIRECTION::DIR_LEFT;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		break;
-	case GLUT_KEY_RIGHT:
-		dir = DIRECTION::DIR_RIGHT;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		break;
-	case GLUT_KEY_DOWN:
-		dir = DIRECTION::DIR_DOWN;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		break;
-	case GLUT_KEY_UP:
-		dir = DIRECTION::DIR_UP;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		break;
-	case GLUT_KEY_PAGE_DOWN:
-		dir = DIRECTION::DIR_IN;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		break;
-	case GLUT_KEY_PAGE_UP:
-		dir = DIRECTION::DIR_OUT;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		break;
-	}
-	//if(cLineRenderer.getDeformLine()->GetSourceMode() == SOURCE_MODE::MODE_DYNAMIC_TRACE)
-	//else if(cLineRenderer.getDeformLine()->GetSourceMode() == SOURCE_MODE::MODE_LENS)
-	//	cLineRenderer.getDeformLine()->MoveLensCenterOnScreenByKey(dir);
-	glutPostRedisplay();
+	//DIRECTION dir;
+	//switch(skey)
+	//{
+	//case GLUT_KEY_LEFT:
+	//	dir = DIRECTION::DIR_LEFT;
+	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
+	//	break;
+	//case GLUT_KEY_RIGHT:
+	//	dir = DIRECTION::DIR_RIGHT;
+	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
+	//	break;
+	//case GLUT_KEY_DOWN:
+	//	dir = DIRECTION::DIR_DOWN;
+	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
+	//	break;
+	//case GLUT_KEY_UP:
+	//	dir = DIRECTION::DIR_UP;
+	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
+	//	break;
+	//case GLUT_KEY_PAGE_DOWN:
+	//	dir = DIRECTION::DIR_IN;
+	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
+	//	break;
+	//case GLUT_KEY_PAGE_UP:
+	//	dir = DIRECTION::DIR_OUT;
+	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
+	//	break;
+	//}
+	//glutPostRedisplay();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 void
 _KeyboardFunc(unsigned char ubKey, int iX, int iY)
 {
-//ADD-BY-TONG 02/27/2013-BEGIN
-//	GLenum eModifier = glutGetModifiers();
-//ADD-BY-TONG 02/27/2013-END
 	DIRECTION dir;
 
 	switch(ubKey)
 	{
-	case 'h':
-		{
-			int iHalo;
-			cLineRenderer._GetInteger(CLineRenderer::ENABLE_HALO, &iHalo);
-			iHalo = !iHalo;
-			cLineRenderer._SetInteger(CLineRenderer::ENABLE_HALO, iHalo);
-		}
-		glutPostRedisplay();
-		break;
-
-	case 'l':
-		{
-			int iLighting;
-			cLineRenderer._GetInteger(CLineRenderer::ENABLE_LIGHTING, &iLighting);
-			iLighting = !iLighting;
-			cLineRenderer._SetInteger(CLineRenderer::ENABLE_LIGHTING, iLighting);
-		}
-
-		glutPostRedisplay();
-		break;
-	case '6':
-		cLineRenderer.getDeformLine()->SetDeformMode(MODE_AUTO);
-		break;
-	case '7':
-		cLineRenderer.getDeformLine()->SetDeformMode(MODE_HULL);
-		cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
-		break;
-	case '8':
-		cLineRenderer.getDeformLine()->SetDeformMode(MODE_ELLIPSE);
-		cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
-		break;
-	case '9':
-		cLineRenderer.getDeformLine()->SetDeformMode(MODE_LINE);
-		cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
-		break;
-	case 't':
-		cLineRenderer.getDeformLine()->RedoDeformation();
-		break;
-	case 'i':
-		cLineRenderer.SetNewCutLine(true);
-		break;
-	case 'o':
-		cLineRenderer.getDeformLine()->SetSourceMode(SOURCE_MODE::MODE_LOCATION);
-		break;
-	case 'p':
-		cLineRenderer.getDeformLine()->SetSourceMode(SOURCE_MODE::MODE_LENS);
-		break;
 	case '+':
-		cLineRenderer.getDeformLine()->ChangeLensAngle(1);
-		glutPostRedisplay();
+		cLineRenderer.getDeformLine()->ChangeLensChangeStep(4);
 		break;
 	case '-':
-		cLineRenderer.getDeformLine()->ChangeLensAngle(-1);
+		cLineRenderer.getDeformLine()->ChangeLensChangeStep(0.25);
+		break;
+	case 'g':
+		cLineRenderer.getDeformLine()->SetDeformOn(false);
 		glutPostRedisplay();
 		break;
-	case 'a':
-		dir = DIRECTION::DIR_LEFT;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		glutPostRedisplay();
-		break;
-	case 'd':
-		dir = DIRECTION::DIR_RIGHT;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		glutPostRedisplay();
-		break;
-	case 'w':
-		dir = DIRECTION::DIR_UP;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		glutPostRedisplay();
-		break;
-	case 's':
-		dir = DIRECTION::DIR_DOWN;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		glutPostRedisplay();
-		break;
-	case 'q':
-		dir = DIRECTION::DIR_IN;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		glutPostRedisplay();
-		break;
-	case 'e':
-		dir = DIRECTION::DIR_OUT;
-		cLineRenderer.getDeformLine()->MovePickBlock(dir);
-		glutPostRedisplay();
-		break;
-
-	//case '[':
-	//	cLineRenderer.getDeformLine()->ChangeLensRatio(1);
-	//	glutPostRedisplay();
-	//	break;
-	//case ']':
-	//	cLineRenderer.getDeformLine()->ChangeLensRatio(-1);
-	//	glutPostRedisplay();
-	//	break;
 	}
 }
 
@@ -379,61 +257,95 @@ _KeyboardFunc(unsigned char ubKey, int iX, int iY)
 
 void _ReshapeFunc(int w, int h)
 {
-//	cLineRenderer._SetInteger(CLineRendererInOpenGLDeform::WIN_WIDTH,w);
-//	cLineRenderer._SetInteger(CLineRendererInOpenGLDeform::WIN_HEIGHT,h);
 	cLineRenderer.getDeformLine()->SetWinSize(w, h);
 	cLineRenderer.reshape();
 	//cLineRenderer.postRedrawPickingColor();
 }
 
+
+void _MotionFunc(int x, int y)
+{
+	if(_touchCoords.size() > 1)		//multitouch
+		return;
+	if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::MOVE_LENS)
+		cLineRenderer.getDeformLine()->MoveLensCenterOnScreen(x - _dragPrevPos[0], y - _dragPrevPos[1]);
+	else if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::DRAG_LENS_EDGE)
+		cLineRenderer.getDeformLine()->MoveLensEndPtOnScreen(x, y);
+
+	_dragPrevPos = VECTOR2(x, y);
+
+	if(cLineRenderer.GetNewCutLine() == true)
+		cLineRenderer.SetCutLineCoords(VECTOR2(x, y), _dragStartPos);
+
+	//if(button==GLUT_RIGHT_BUTTON)
+	//cLineRenderer.dragTo(x, y);
+}
+
 void _MouseFunc(int button, int state, int x, int y)
 {
-	if(button==GLUT_RIGHT_BUTTON)
+	//if(button==GLUT_RIGHT_BUTTON)
+	//{
+	if(cLineRenderer.GetNewCutLine() == true)
 	{
-		if(cLineRenderer.GetNewCutLine() == true)
+		if(state==GLUT_DOWN)
 		{
-			if(state==GLUT_DOWN)
-				_dragStartPosLine = VECTOR2(x, y);
-			else if(state==GLUT_UP)
-			{
-				if(cLineRenderer.GetNewCutLine())
-					cLineRenderer.CutLineFinish();
-				cLineRenderer.SetNewCutLine(false);
-			}
+			_dragStartPos = VECTOR2(x, y);
 		}
-		else
+		else if(state==GLUT_UP)
 		{
-			if(state==GLUT_DOWN)
-			{
-				if(cLineRenderer.getDeformLine()->InsideFirstEllipse(x, y))
-				{
-					_dragLens = true;
-					_dragStartPos = VECTOR2(x, y);
-				}
-				if(cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
-				{
-					_dragLensEndPt = true;
-				}
-				cLineRenderer.SetDeformOn(false);
-			}
-			else if(state==GLUT_UP)
-			{
-				_dragLens = false;
-				_dragLensEndPt = false;
-				cLineRenderer.SetDeformOn(true);
+			if(cLineRenderer.GetNewCutLine())
+				cLineRenderer.CutLineFinish();
+			SetDisableTransformation(false);
+		}
+	}
+	else if(cLineRenderer.getDeformLine()->GetSourceMode() == SOURCE_MODE::MODE_LENS)
+	{
+		if(state==GLUT_DOWN)
+		{
+			SetDisableTransformation(true);
+			_dragStartPos = VECTOR2(x, y);
+			cLineRenderer.SetDeformOn(false);
+			if(cLineRenderer.getDeformLine()->InsideFirstEllipse(x, y))
+				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::MOVE_LENS);
+			else if(cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
+				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_EDGE);
+			else
+				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::TRANSFORMATION);
+		}
+		else if(state == GLUT_UP)
+		{
+			cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::TRANSFORMATION);
+			cLineRenderer.SetDeformOn(true);
+			if(cLineRenderer.getDeformLine()->GetDeformMode() == DEFORM_MODE::MODE_LINE)
 				cLineRenderer.getDeformLine()->RedoDeformation();
-			}
+			else
+				cLineRenderer.getDeformLine()->ProcessAllStream();
 		}
-		//	//cLineRenderer.setDragging(true);
-		////	cLineRenderer._getDragSet(x, y);
+
+	}
+				//{
+	_dragPrevPos = VECTOR2(x, y);
+
+				//}
+				//else if(cLineRenderer.getDeformLine()->GetSourceMode() == SOURCE_MODE::MODE_LENS 
+				//	&& )
+				//{
+				//	
+				//	//_dragStartPos = VECTOR2(x, y);
+				//}
+				//else
+					//SetDisableTransformation(false);
+			//}
+			//else if(state==GLUT_UP)
+			//{
+				
+			//}
 		//}
-		//else if(state==GLUT_UP)
-		//	cLineRenderer.setDragging(false);
-	}
-	else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
-	{
-		cLineRenderer.getDeformLine()->UpdateLensScreen();
-	}
+	//}
+	//if(/*button == GLUT_LEFT_BUTTON && */state == GLUT_UP)
+	//{
+	//	cLineRenderer.getDeformLine()->UpdateLensScreen();
+	//}
 	//redraw the picking space only when mouse release
 	//there are two cases for mouse release: 
 	//1. left mouse release for finishing rotation or transformation; 
@@ -447,7 +359,6 @@ void _IdleFunc()
 {
 	//cLineRenderer.getDeformLine()->RunCuda();
 	calculateFPS();
-
 }
 
 void _TimerFunc(int value)
@@ -457,40 +368,81 @@ void _TimerFunc(int value)
 	glutPostRedisplay();
 	glutTimerFunc(REFRESH_DELAY, _TimerFunc,0);
 }
-//ADD-BY-TONG 03/04/2013-END
 
-
-void _MotionFunc(int x, int y)
+void _MultiMotionFunc(int id, int x, int y, GESTURE g)
 {
-
-	if(_dragLens)
-		cLineRenderer.getDeformLine()->MoveLensCenterOnScreen(x - _dragStartPos[0], y - _dragStartPos[1]);
+//	cout<<"id:\t"<<id<<endl;
+//	_touchCoords.insert(id, );
+	//SetTouchStatus(_touchCoords.size() > 1 );
+	//put a timer here to make it faster;
+	switch(g)
+	{
+	case GESTURE::SPAN:
+		cLineRenderer.getDeformLine()->ChangeLensDepth(1);
+		break;
+	case GESTURE::SQUEEZE:
+		cLineRenderer.getDeformLine()->ChangeLensDepth(-1);
+		break;
+	case GESTURE::NO_GESTURE:
+		break;
+	}
+	glutPostRedisplay();
 	
-	if(_dragLensEndPt)
-		cLineRenderer.getDeformLine()->MoveLensEndPtOnScreen(x, y);
-
-	_dragStartPos = VECTOR2(x, y);
-
-	if(cLineRenderer.GetNewCutLine() == true)
-		cLineRenderer.SetCutLineCoords(_dragStartPosLine ,_dragStartPos);
-
-	//if(button==GLUT_RIGHT_BUTTON)
-	//cLineRenderer.dragTo(x, y);
+	//if(_touchCoords.end() == _touchCoords.find(id))	{
+	//	vector<VECTOR2> pts;
+	//	pts.push_back(VECTOR2(x, y));
+	//	_touchCoords.insert(std::pair<int, vector<VECTOR2>>(id, pts));
+	//} else {
+	//	_touchCoords.find(id)->second.push_back(VECTOR2(x, y));
+	//	if(_touchCoords.size() > 1 && ( 0 == _touchCoords.find(id)->second.size() % 16))	{
+	//		map<int, vector<VECTOR2>>::iterator it = _touchCoords.begin();
+	//		map<int, vector<VECTOR2>>::iterator it2 = it;
+	//		it2++;
+	//		int iN = 8;
+	//		if(it->second.size() >= iN && it2->second.size() >= iN)
+	//		{
+	//			float distLast = (it->second.back() - it2->second.back()).GetMag();
+	//			float distEarlier = (it->second.at(it->second.size() - iN) - it2->second.at(it2->second.size() - iN)).GetMag();
+	//			float diff = distLast - distEarlier;
+	//			if( diff > 2)
+	//				cLineRenderer.getDeformLine()->ChangeLensDepth(1);
+	//			else if(diff < -2)
+	//				cLineRenderer.getDeformLine()->ChangeLensDepth(-1);
+	//		}
+	//	}
+	//}
 }
+
+void _MultiEntryFunc(int id, int mode)
+{
+	//if(mode == GLUT_ENTERED)
+	//{
+	//	_deviceId.insert(id);
+	//	//cout<<"entered"<<endl;
+	//}
+	//else if(mode == GLUT_LEFT)
+	//{
+	//	//cout<<"left"<<endl;
+	//	_deviceId.erase(id);
+	//	_touchCoords.erase(id);
+	//}
+	//for(set<int>::iterator it=_deviceId.begin(); it!=_deviceId.end(); ++it)
+	//	std::cout << ' ' << *it;
+	//cout<<endl;
+}
+
+
 
 void _PassiveMotionFunc(int x, int y)
 {
+	if(_touchCoords.size() > 1)		//multitouch
+		return;
 	cLineRenderer._PassiveMotion(x, y);
 	//cLineRenderer._getDragSet(x, y);
 }
 
 void _MouseWheelFunc( int wheel, int direction, int x, int y )
 {
-	//if(direction < 0)
-	//	cLineRenderer.resizePickWin(true);
-	//else
-	//	cLineRenderer.resizePickWin(false);
-	//cLineRenderer._getDragSet(x, y);
 	if(direction > 0)
 		cLineRenderer.getDeformLine()->ChangeLensDepth(1);
 	else
@@ -588,15 +540,6 @@ init()
 {
 	LOG(printf("Initialize here."));
 	glEnable(GL_DEPTH_TEST);
-
-	// setup light 0
-	static GLfloat pfLightAmbient[4] =	{0.0f, 0.0f, 0.0f, 1.0f};
-	static GLfloat pfLightColor[4] =	{0.5f, 0.5f, 0.5f, 1.0f};
-	glLightfv(GL_LIGHT0, GL_AMBIENT,		pfLightAmbient);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE,		pfLightColor);
-	glLightfv(GL_LIGHT0, GL_SPECULAR,		pfLightColor);
-	glLightf(GL_LIGHT0, GL_SPOT_EXPONENT,	4.0f);
-	cLineRenderer._UpdateLighting();
 }
 
 void 
@@ -604,6 +547,116 @@ quit()
 {
 	LOG(printf("Clean up here."));
 }
+
+void control_cb( int control )
+{
+	DIRECTION dir;
+	
+	switch (control)
+	{
+	case REDO_DEFORM_ID:
+		{
+			cLineRenderer.getDeformLine()->RedoDeformation();
+			break;
+		}
+	case CUT_LINE_ID:
+		{
+			cLineRenderer.SetNewCutLine(true);
+			SetDisableTransformation(true);
+			break;
+		}
+	case X_INCREASE_ID:
+		{
+			dir = DIRECTION::DIR_RIGHT;
+			cLineRenderer.getDeformLine()->MovePickBlock(dir);
+			glutPostRedisplay();
+			break;
+		}
+	case X_DECREASE_ID:
+		{
+			dir = DIRECTION::DIR_LEFT;
+			cLineRenderer.getDeformLine()->MovePickBlock(dir);
+			glutPostRedisplay();
+			break;
+		}
+	case Y_INCREASE_ID:
+		{
+			dir = DIRECTION::DIR_UP;
+			cLineRenderer.getDeformLine()->MovePickBlock(dir);
+			glutPostRedisplay();
+			break;
+		}
+	case Y_DECREASE_ID:
+		{
+			dir = DIRECTION::DIR_DOWN;
+			cLineRenderer.getDeformLine()->MovePickBlock(dir);
+			glutPostRedisplay();
+			break;
+		}
+	case Z_INCREASE_ID:
+		{
+			dir = DIRECTION::DIR_OUT;
+			cLineRenderer.getDeformLine()->MovePickBlock(dir);
+			glutPostRedisplay();
+			break;
+		}
+	case Z_DECREASE_ID:
+		{
+			dir = DIRECTION::DIR_IN;
+			cLineRenderer.getDeformLine()->MovePickBlock(dir);
+			glutPostRedisplay();
+			break;
+		}
+	case METHOD_TYPE_ID:
+		{
+			switch(method_type)
+			{
+			case 0:
+				cLineRenderer.getDeformLine()->SetSourceMode(SOURCE_MODE::MODE_BUNDLE);
+				break;
+			case 1:
+				cLineRenderer.getDeformLine()->SetSourceMode(SOURCE_MODE::MODE_LENS);
+				break;
+			case 2:
+				cLineRenderer.getDeformLine()->SetSourceMode(SOURCE_MODE::MODE_LOCATION);
+				break;
+			}
+			break;
+		}
+	case SHAPE_MODEL_ID:
+		{
+			switch(shapeModelRadioOption)
+			{
+			case 0:
+				cLineRenderer.getDeformLine()->SetDeformMode(MODE_ELLIPSE);
+				cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
+
+				break;
+			case 1:
+				cLineRenderer.getDeformLine()->SetDeformMode(MODE_LINE);
+				cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
+
+				break;
+			case 2:
+				cLineRenderer.getDeformLine()->SetDeformMode(MODE_HULL);
+				cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
+
+				break;
+			case 3:
+				cLineRenderer.getDeformLine()->SetDeformMode(MODE_AUTO);
+				break;
+			}
+
+		}
+	case SHOW_CUBE_ID:
+		{
+			cLineRenderer.SetShowCube(_showCubeGCB);
+			break;
+		}
+	}
+
+}
+
 
 int
 main(int argc, char* argv[])
@@ -616,7 +669,6 @@ main(int argc, char* argv[])
 	// load the scalar field
 	LOG(printf("read file %s\n", argv[1]));
 
-	//ADD-BY-TONG 02/19/2013-BEGIN
 	if(argc > 1)
 	{
 		readTraceFile(argv[1]);
@@ -628,14 +680,6 @@ main(int argc, char* argv[])
 		cLineRenderer.getDeformLine()->SetDistFileName(FILENAME_DIST);
 	}
 
-	
-//	else
-	//ADD-BY-TONG 02/19/2013-END	
-	//	readTraceFile(argv[1]);
-//	assignColors();
-
-//	szVecFilePath = argv[1];
-
 	// comptue the bounding box of the streamlines 
 	VECTOR3 minB, maxB; 
 	minB[0] = minLen[0]; minB[1] = minLen[1];  minB[2] = minLen[2];
@@ -644,26 +688,17 @@ main(int argc, char* argv[])
 								minLen[0], maxLen[0], minLen[1], maxLen[1], 
 								minLen[2], maxLen[2]); 
 
-	center[0] = (minLen[0]+maxLen[0])/2.0; 
-	center[1] = (minLen[1]+maxLen[1])/2.0; 
-	center[2] = (minLen[2]+maxLen[2])/2.0; 
-	printf("center is at %f %f %f \n", center[0], center[1], center[2]); 
-	len[0] = maxLen[0]-minLen[0]; 
-	len[1] = maxLen[1]-minLen[1]; 
-	len[2] = maxLen[2]-minLen[2]; 
-
 	///////////////////////////////////////////////////////////////
 	cLineRenderer._SetBoundingBox(
 		minLen[0], minLen[1], minLen[2], 
 		maxLen[0], maxLen[1], maxLen[2]);
 	cLineRenderer._SetDataSource(&sl_list);
-	cLineRenderer._SetColorSource(&liv4Colors);
 	cLineRenderer._SetInteger(CLineRenderer::COLOR_SCHEME, CLineRenderer::CColorScheme::COLOR_ALL_WHITE);
 //	cLineRenderer.getDeformLine()->SetVectorFieldFilename(FILENAME_VEC);
 
 	///////////////////////////////////////////////////////////////
-//	glutInitWindowPosition(0, 100);
-	glutInitWindowSize(800, 800);
+	glutInitWindowPosition(200, 150);
+	glutInitWindowSize(900, 770);
 	deformWindowId = glutCreateWindow("Streamline Deformation Visualization");
 
 	// specify the callbacks you really need. Except gcbInit() and gcbDisplayFunc(), other callbacks are optional
@@ -679,6 +714,8 @@ main(int argc, char* argv[])
 	gcbMouseWheelFunc(_MouseWheelFunc);
 	gcbIdleFunc(_IdleFunc);
 	gcbTimerFunc(_TimerFunc);
+	gcbMultiMotionFunc(_MultiMotionFunc);
+	gcbMultiEntryFunc(_MultiEntryFunc);
 	//ADD-BY-TONG 02/12/2013-END
 	cLineRenderer._SetFloat(CTimeLineRendererInOpenGLDeform::MIN_TIME_STEP,0.0f);
 	cLineRenderer._SetFloat(CTimeLineRendererInOpenGLDeform::MAX_TIME_STEP,1.0f);
@@ -693,16 +730,51 @@ main(int argc, char* argv[])
 
 	fps = 0;
 	frameCount = 0;
-	_dragLens = false;
-	_dragLensEndPt = false;
-	// enter the GLUT loop
+	//_dragLens = false;
+	//_dragLensEndPt = false;
+
+	//////////GLUI
+	GLUI *glui = GLUI_Master.create_glui_subwindow(deformWindowId, GLUI_SUBWINDOW_TOP);
+
+	new GLUI_Button(glui, "Redo Deform", REDO_DEFORM_ID, control_cb );
+	//new GLUI_Button(glui, "Lens", LENS_ID, control_cb );
+	
+	new GLUI_Column( glui, false );
+	GLUI_Panel *method_panel = new GLUI_Panel( glui, "Method" );
+	GLUI_RadioGroup  *radio = new GLUI_RadioGroup(method_panel, &method_type, METHOD_TYPE_ID, control_cb);;
+	new GLUI_RadioButton( radio, "Bundle" );
+	new GLUI_RadioButton( radio, "Lens" );
+	new GLUI_RadioButton( radio, "Location" );
+
+	new GLUI_Column( glui, false );
+	GLUI_Panel *drawLens_panel = new GLUI_Panel( glui, "Draw Lens" );
+	new GLUI_Button(drawLens_panel, "Line", CUT_LINE_ID, control_cb );
+
+	new GLUI_Column( glui, false );
+	GLUI_Panel *shapeModel_panel = new GLUI_Panel( glui, "Focus Region Shape" );
+	GLUI_RadioGroup  *radioShapeModel = new GLUI_RadioGroup(shapeModel_panel, &shapeModelRadioOption, SHAPE_MODEL_ID, control_cb);;
+	new GLUI_RadioButton( radioShapeModel, "Ellipse" );
+	new GLUI_RadioButton( radioShapeModel, "Line" );
+	new GLUI_RadioButton( radioShapeModel, "Hull" );
+	new GLUI_RadioButton( radioShapeModel, "Auto" );
+
+	new GLUI_Column( glui, false );
+	GLUI_Panel *location_panel = new GLUI_Panel( glui, "Cube Location" );
+	new GLUI_Button(location_panel, "X --", X_DECREASE_ID, control_cb );
+	new GLUI_Button(location_panel, "Y --", Y_DECREASE_ID, control_cb );
+	new GLUI_Button(location_panel, "Z --", Z_DECREASE_ID, control_cb );
+	new GLUI_Column( location_panel, false );
+	new GLUI_Button(location_panel, "X ++", X_INCREASE_ID, control_cb );
+	new GLUI_Button(location_panel, "Y ++", Y_INCREASE_ID, control_cb );
+	new GLUI_Button(location_panel, "Z ++", Z_INCREASE_ID, control_cb );
+
+	new GLUI_Column( glui, false );
+	GLUI_Panel *options_panel = new GLUI_Panel( glui, "Options" );
+	new GLUI_Checkbox( options_panel, "Show Cube", &_showCubeGCB, SHOW_CUBE_ID, control_cb );
+
 
 	///////////////////
 	glutMainLoop();
-	//ADD-BY-TONG-BEGIN
-	//return app.exec();
-	//ADD-BY-TONG-END
-
 	return 0;
 }
 

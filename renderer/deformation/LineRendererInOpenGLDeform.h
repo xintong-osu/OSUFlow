@@ -77,9 +77,10 @@ class CLineRendererInOpenGLDeform :
 	void DrawPixel(VECTOR2 pixel);
 
 	StreamDeform _deformLine;
-	vector<vector<int>>* _bundle;
+	//vector<vector<int>>* _bundle;
 	bool _newCutLine;
 	VECTOR2 _cutLine[2];
+	bool _showCube;
 
 	//int _winWidth, _winHeight;
 
@@ -219,6 +220,8 @@ public:
 	void SetCutLineCoords(VECTOR2 startPoint, VECTOR2 endPoint);
 	void SetWinSize(int w, int h);
 	void SetDeformOn(bool b);
+	void ToggleShowCube();
+	void SetShowCube(bool b);
 	//ADD-BY-TONG 02/12/2013-END
 };
 

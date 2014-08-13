@@ -5,10 +5,10 @@ static std::map<int, PickPanel> instanceMap;
 
 PickWin::PickWin(int argc, char* argv[])
 {
-	_winWidth = 1000;
-	_winHeight = 1000;
+	_winWidth = 600;
+	_winHeight = 600;
 	//glutInit(&argc, argv);
-	glutInitWindowPosition(900, 0);
+	glutInitWindowPosition(1115, 150);
 	glutInitWindowSize(_winWidth, _winHeight);
 	_winId = glutCreateWindow("Bundle Picking");
 }
@@ -39,6 +39,6 @@ void PickWin::ShowPanels()
 		pp->LoadData(_vertCoords, _pviGlPrimitiveBases, _pviGlPrimitiveLengths, &_bundle->at(i), _vbo_pfCoords, _vbo_tangent, _deformWinCon, _deformWin);
 	//	instanceMap.insert(std::pair<int, PickPanel>(i,*pp));
 	}
-	glutMainLoop();
+	//glutMainLoop();
 
 }

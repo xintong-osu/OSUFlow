@@ -236,6 +236,7 @@ class StreamDeform
 
 	DEFORM_MODE _deformMode;
 	SOURCE_MODE _sourceMode;
+	INTERACT_MODE _interactMode;
 
 	bool bDragging;
 	int _prevToX, _prevToY;
@@ -354,6 +355,8 @@ class StreamDeform
 	//VECTOR2 _lens_center_screen;
 	bool _onEllipseEndPt;
 	bool _onLongAxisEndPt;
+	float _lensChangeStep;
+
 
 	float _pfMin[4];
 	float _pfMax[4];
@@ -392,6 +395,8 @@ public:
 	//void drawPickWin(int x, int y, int width, int height);
 	//void restoreVertex();
 	void SetDeformMode(DEFORM_MODE mode);
+	void SetInteractMode(INTERACT_MODE mode);
+	INTERACT_MODE GetInteractMode();
 	//void ReSetDeformMode(int i);
 
 	//void restorePrevDeformedLines();
@@ -421,6 +426,7 @@ public:
 	void SetPara(float p);
 	void PickBundle(int ib);
 	void AddRemoveBundle(int ib);
+	void ProcessAfterBundleChanged();
 	//vector<Point_3> GetBundlePoints();
 	void RunCuda();
 	void resetOrigPos();
@@ -457,6 +463,8 @@ public:
 	SOURCE_MODE GetSourceMode();
 	void ChangeLensRadius(int m);
 	void ChangeLensAngle(int m);
+	void ChangeLensChangeStep(float m);
+	
 
 	void SetLensAxis(VECTOR2 startPoint, VECTOR2 endPoint);
 	//void ChangeLensRatio(int m);

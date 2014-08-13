@@ -12,6 +12,10 @@ May,2010
 #include <string.h>
 
 #include "gcb2.h"
+#include "GL\glui.h"
+#include <map>
+#include "VectorMatrix.h"
+using namespace std;
 
 ///////////////////////////////////////////////////////////////
 // 
@@ -28,6 +32,8 @@ TMatrix tModelMatrix, tInitModelMatrix;
 TMatrix tProjectionMatrix;
 
 int piViewport[4];
+map<int, vector<VECTOR2>> _touchCoordsGCB;
+GESTURE _currentGesture;
 
 // ADD-BY-LEETEN 03/31/2008-BEGIN
 // the different between the origin of the model and the cursor the on screen.
@@ -50,6 +56,8 @@ void (*_MouseFunc)(int button, int state, int x, int y);
 void (*_MotionFunc)(int x, int y);
 void (*_PassiveMotionFunc)(int x, int y);
 void (*_MouseWheelFunc)( int wheel, int direction, int x, int y );
+void (*_MultiMotionFunc)(int id, int x, int y, GESTURE g);
+void (*_MultiEntryFunc)(int id, int mode);
 //ADD-BY-TONG 02/13/2013-END
 
 ///////////////////////////////////////////////////////////////
@@ -60,6 +68,14 @@ static int iCursorX, iCursorY; // the 2D coordinate of the cursor
 static GLenum eMouseButton = 0;
 static GLenum eModifier = 0;
 static bool bMoving = false;
+static bool _disableTransformation = false;
+
+void SetDisableTransformation(bool b)
+{
+//	_touchModeOn = b;
+	_disableTransformation = b;
+	//bMoving = !b;
+}
 
 void
 _Quit()
@@ -582,17 +598,67 @@ _MouseWheelCB(int wheel, int direction, int x, int y)
 	if(_MouseWheelFunc)
 		_MouseWheelFunc(wheel, direction, x, y);
 }
+
+void 
+_MultiMotionCB(int id, int x, int y)
+{
+	_currentGesture = GESTURE::NO_GESTURE;
+	if(_touchCoordsGCB.end() == _touchCoordsGCB.find(id))	{
+		vector<VECTOR2> pts;
+		pts.push_back(VECTOR2(x, y));
+		_touchCoordsGCB.insert(std::pair<int, vector<VECTOR2>>(id, pts));
+	} else {
+		_touchCoordsGCB.find(id)->second.push_back(VECTOR2(x, y));
+		if(_touchCoordsGCB.size() > 1 && ( 0 == _touchCoordsGCB.find(id)->second.size() % 16))	{
+			map<int, vector<VECTOR2>>::iterator it = _touchCoordsGCB.begin();
+			map<int, vector<VECTOR2>>::iterator it2 = it;
+			it2++;
+			int iN = 8;
+			if(it->second.size() >= iN && it2->second.size() >= iN)
+			{
+				float distLast = (it->second.back() - it2->second.back()).GetMag();
+				float distEarlier = (it->second.at(it->second.size() - iN) - it2->second.at(it2->second.size() - iN)).GetMag();
+				float diff = distLast - distEarlier;
+				if( diff > 2)
+					_currentGesture = GESTURE::SPAN;
+				else if(diff < -2)
+					_currentGesture = GESTURE::SQUEEZE;
+			}
+		}
+	}
+	if(_MultiMotionFunc)
+		_MultiMotionFunc(id, x, y, _currentGesture);
+}
+
+void _MultiEntryCB(int id, int mode)
+{
+	if(mode == GLUT_ENTERED)
+	{
+		//_deviceId.insert(id);
+		//cout<<"entered"<<endl;
+	}
+	else if(mode == GLUT_LEFT)
+	{
+		//cout<<"left"<<endl;
+		//_deviceId.erase(id);
+		_touchCoordsGCB.erase(id);
+	}
+	if(_MultiEntryFunc)
+		_MultiEntryFunc(id, mode);
+//	std::cout<<"entry"<<id<<std::endl;
+}
+
 //ADD-BY-TONG 02/13/2013-END
 
 void
 _MotionCB(int x, int y)
 {
-	// flip the y coordinate
-	y = piViewport[3] - y;
+	//cout<<"_touchModeOn...:  "<<_touchModeOn<<endl;
 
+		// flip the y coordinate
+	y = piViewport[3] - y;
 	iCursorX = x;
 	iCursorY = y;
-
 	//ADD-BY-TONG 02/13/2013-BEGIN
 	if( _MotionFunc )
 		_MotionFunc(x, y);
@@ -637,54 +703,71 @@ _TimerCB( int value)
 }
 
 void
-_IdleCB()
+	_IdleCB()
 {
-	if(bMoving)
+		
+	if(bMoving && !_disableTransformation)
 	{
-		switch(eMouseButton) 
+		if(2 == _touchCoordsGCB.size() && GESTURE::NO_GESTURE == _currentGesture)		//if touch screen
 		{
-		case GLUT_LEFT_BUTTON: // pan
-			switch( eModifier & ~GLUT_ACTIVE_ALT )
+			_RotateModel();
+			glutPostRedisplay();	
+		}
+		else if(3 == _touchCoordsGCB.size())
+		{
+			_ZoomModel();
+			glutPostRedisplay();	
+		}
+		else if(_touchCoordsGCB.size() > 3)
+		{
+		}
+		else
+		{
+			switch(eMouseButton) 
 			{
-			case 0:
-				_PanModel();
-				glutPostRedisplay();	
+			case GLUT_LEFT_BUTTON: // pan
+				switch( eModifier & ~GLUT_ACTIVE_ALT )
+				{
+				case 0:
+					_PanModel();
+					glutPostRedisplay();	
+					break;
+
+				case GLUT_ACTIVE_CTRL: // manipulate the object
+					_RotateModel();
+					glutPostRedisplay();	
+					break;
+
+				case GLUT_ACTIVE_SHIFT:
+					_ZoomModel();
+					glutPostRedisplay();	
+					break;
+				} // switch(eModifier)
 				break;
 
-			case GLUT_ACTIVE_CTRL: // manipulate the object
-				_RotateModel();
-				glutPostRedisplay();	
-				break;
+			case GLUT_RIGHT_BUTTON:
+				switch( eModifier & ~GLUT_ACTIVE_ALT )
+				{
+					//MOD-BY-TONG 02/15/2013-BEGIN
+					//case 0:
+					//_PanCamera();
+					//glutPostRedisplay();
+					//break;
+					//MOD-BY-TONG 02/15/2013-END
 
-			case GLUT_ACTIVE_SHIFT:
-				_ZoomModel();
-				glutPostRedisplay();	
-				break;
-			} // switch(eModifier)
-			break;
+				case GLUT_ACTIVE_CTRL: // manipulate the object
+					_RotateCamera();
+					glutPostRedisplay();	
+					break;
 
-		case GLUT_RIGHT_BUTTON:
-			switch( eModifier & ~GLUT_ACTIVE_ALT )
-			{
-				//MOD-BY-TONG 02/15/2013-BEGIN
-			//case 0:
-				//_PanCamera();
-				//glutPostRedisplay();
-				//break;
-				//MOD-BY-TONG 02/15/2013-END
-
-			case GLUT_ACTIVE_CTRL: // manipulate the object
-				_RotateCamera();
-				glutPostRedisplay();	
+				case GLUT_ACTIVE_SHIFT:
+					_ZoomCamera();
+					glutPostRedisplay();	
+					break;
+				} // switch(eModifier)
 				break;
-
-			case GLUT_ACTIVE_SHIFT:
-				_ZoomCamera();
-				glutPostRedisplay();	
-				break;
-			} // switch(eModifier)
-			break;
-		} // switch(eMouseButton) 
+			} // switch(eMouseButton) 
+		}
 	} // if(bMoving)
 
 	if( _IdleFunc )
@@ -754,6 +837,15 @@ gcbMouseWheelFunc(void (*_MyMouseWheelFunc)(int, int, int, int))
 
 //ADD-BY-TONG 02/13/2013-END
 
+void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE))
+{
+	_MultiMotionFunc = _MyMultiMotionFunc;
+}
+
+void gcbMultiEntryFunc(void (*_MyMultiEntryFunc)(int, int))
+{
+	_MultiEntryFunc = _MyMultiEntryFunc;
+}
 // ADD-BY-LEETEN 08/14/2010-BEGIN
 void
 _PrintUsage()
@@ -793,13 +885,17 @@ gcbInit(void (*_InitFunc)(), void (*_QuitFunc)())
 	glutKeyboardFunc(_KeyCB);
 	glutSpecialFunc(_SpecialCB);
 	glutMotionFunc(_MotionCB);
+	//GLUI_Master.s
 	glutMouseFunc(_MouseCB);
+	//GLUI_Master.set_glutMouseFunc(_MouseCB);
 	glutIdleFunc(_IdleCB);
 	glutTimerFunc(REFRESH_DELAY, _TimerCB, 0);
-
+	glutMultiMotionFunc(_MultiMotionCB);
+	glutMultiEntryFunc(_MultiEntryCB);
 	//ADD-BY-TONG 02/25/2013-BEGIN
 	glutPassiveMotionFunc(_PassiveMotionCB);
 	glutMouseWheelFunc(_MouseWheelCB);
+	
 	//ADD-BY-TONG 02/25/2013-END
 
 	// the projection matrix is decided in the _ReshapeCB();

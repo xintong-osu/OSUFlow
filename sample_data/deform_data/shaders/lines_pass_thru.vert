@@ -33,9 +33,9 @@ void main()
 	reflection = normalize(reflect(-light, normal));
 	specularItensity = pow(clamp(max(dot(reflection, eye), 0.0), 0.0, 1.0), 2.0 );
 
-	vec4 ks = vec4(0.3, 0.3, 0.3, 1.0);
-	vec4 kd = vec4(0.3f, 0.3f, 0.3f, 1.0f);
-	vec4 ka = vec4(0.5, 0.5, 0.5, 1.0);
+	vec4 ks = vec4(0.25, 0.25, 0.25, 1.0);
+	vec4 kd = vec4(0.25f, 0.25f, 0.25f, 1.0f);
+	vec4 ka = vec4(0.7, 0.7, 0.7, 1.0);
 	vec4 cc;
 	if(line_color.a > 0.6 )
 		cc = vertexObjectColor;

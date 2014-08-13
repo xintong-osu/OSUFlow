@@ -6,6 +6,7 @@ find_package(CUDA)
 find_package(CGAL)
 find_package(BOOST)
 find_package(GLEW)
+find_package(GLUI)
 
 # DEL-BY-LEETEN 08/17/2011-BEGIN
 	# # set paths to OSUFlow-related libraries
@@ -24,12 +25,13 @@ include_directories(
 		. 
 		# DEL-BY-LEETEN 08/17/2011		${OSUFLOW_DIR}/src
 		#${RENDERER_DIR}
-		${GCB_DIR}
+		#${GCB_DIR}
 		#${GLUT_INCLUDE_PATH}
+		${GLUI_INCLUDE_DIR}
 	)
 	
 if ( CGAL_FOUND )
-#	message(${CGAL_USE_FILE})
+	message("cgal: " ${CGAL_USE_FILE})
 	include( ${CGAL_USE_FILE} )
 else()
     message(STATUS "This program requires the CGAL library, and will not be compiled.")
@@ -39,7 +41,7 @@ endif()
 link_directories(
 	# DEL-BY-LEETEN 08/17/2011		${OSUFLOW_DIR}/src
 	${RENDERER_DIR}
-	${GCB_DIR}
+	#${GCB_DIR}
 	${CUDA_TOOLKIT_INCLUDE}
 	${CGAL_INCLUDE_DIR}
 	${Boost_LIBRARY_DIRS}
@@ -86,4 +88,5 @@ target_link_libraries(gcbDeformation
 		${CUDA_CUDART_LIBRARY}
 		${Boost_SYSTEM_LIBRARY}
 		${Boost_THREAD_LIBRARY}
+		${GLUI_LIBRARY}
 )

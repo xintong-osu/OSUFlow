@@ -284,14 +284,16 @@ StreamDeform::StreamDeform(void)
 	_VertexCopyPrev = NULL;
 
 	_pickBlockStart = VECTOR3(0, 0, 0);
-	_pickBlockSize = VECTOR3(10, 10, 10);
-	_pickBlockMoveStep = 10;
+	_pickBlockSize = VECTOR3(4, 4, 4);
+	_pickBlockMoveStep = 4;
 	_autoDeformMode = true;
+	_lensChangeStep = 0.0002;
 
 	SetMode(&_deformMode, &_sourceMode);
 	SetPickedLineSet(&_pickedLineSet);
 	//SetStreamDeform(this);
 	_deformOn = true;
+	_interactMode = INTERACT_MODE::TRANSFORMATION;
 	SetDeformOnPara(&_deformOn);
 }
 
@@ -313,6 +315,16 @@ void StreamDeform::SetDeformMode(DEFORM_MODE mode)
 	RedoDeformation();
 }
 
+void StreamDeform::SetInteractMode(INTERACT_MODE mode)
+{
+	_interactMode = mode;
+}
+
+INTERACT_MODE StreamDeform::GetInteractMode()
+{
+	return _interactMode;
+}
+
 void StreamDeform::SetSourceMode(SOURCE_MODE mode)
 {
 	_sourceMode = mode;
@@ -326,6 +338,9 @@ void StreamDeform::SetSourceMode(SOURCE_MODE mode)
 	
 
 	//	RestoreStreamConnectivity();
+	}
+	else if(_sourceMode == SOURCE_MODE::MODE_LOCATION)	{
+		_deformMode = DEFORM_MODE::MODE_ELLIPSE;
 	}
 	
 	RedoDeformation();
@@ -521,7 +536,7 @@ bool StreamDeform::OnEllipseEndPoint(float x, float y)
 	_onEllipseEndPt = false;
 	for(int i = 0; i < endPoints.size(); i++)
 	{
-		if((VECTOR2(x, y) - endPoints[i]).GetMag() < 5.0)
+		if((VECTOR2(x, y) - endPoints[i]).GetMag() < 32.0)
 		{
 			_onEllipseEndPt = true;
 			if(i == 0 || i == 2)
@@ -536,14 +551,15 @@ bool StreamDeform::OnEllipseEndPoint(float x, float y)
 
 void StreamDeform::ChangeLensDepth(int m)
 {
-	float step = 0.0002;
+	//float step = 0.0002;
 
 	//should be Object2Camera, but not Object2Clip
+	//cout<<"_lensChangeStep:"<<_lensChangeStep<<endl;
 	VECTOR4 lens_center_clip = Object2Clip(_lensCenterObject, _ModelViewMatrix, _ProjectionMatrix);
 	if(m > 0)
-		lens_center_clip[2] += step;
+		lens_center_clip[2] += _lensChangeStep;
 	else
-		lens_center_clip[2] -= step;
+		lens_center_clip[2] -= _lensChangeStep;
 	_lensCenterObject = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
 	//SetEllipse(&_focusEllipseSet);
 	ProcessAllStream();
@@ -623,6 +639,11 @@ void StreamDeform::ChangeLensAngle(int m)
 {
 	_focusEllipseSet.front().angle += (m * 0.2);
 	LensTouchLine();
+}
+
+void StreamDeform::ChangeLensChangeStep(float m)
+{
+	_lensChangeStep *= m;
 }
 //
 //void StreamDeform::ChangeLensRatio(int m)
@@ -716,7 +737,7 @@ float StreamDeform::Object2ScreenLength(float length_object, VECTOR4 center_obje
 
 void StreamDeform::RunCuda()
 {
-	clock_t t0;
+	clock_t t0 = 0;
 #if (TEST_PERFORMANCE == 2)
 	t0 = clock();
 #endif
@@ -937,12 +958,31 @@ void StreamDeform::UpdateVertexLineIndexForCut()
 //	SetPickedLineCUDA(&_pickedLineSet[0], _pickedLineSet.size());
 }
 
+void StreamDeform::PickBundle(int ib)
+{
+	if(_sourceMode != SOURCE_MODE::MODE_BUNDLE)
+		return;
+	if(ib < 0)
+		return;
+
+	_autoDeformMode = true;
+
+	_pickedBundleSet.clear();
+	_pickedBundleSet.insert(ib);
+
+	RestoreAllStream();
+	ProcessAfterBundleChanged();
+}
+
 void StreamDeform::AddRemoveBundle(int ib)
 {
-	_sourceMode = SOURCE_MODE::MODE_BUNDLE;
+	if(_sourceMode != SOURCE_MODE::MODE_BUNDLE)
+		return;
+	if(ib < 0)
+		return;
 	//have to reset original position, because the newly added bundle is deformed
 	//however, the original position is needed for deciding groups
-	RestoreAllStream();
+	//RestoreAllStream();
 	std::set<int>::iterator it;
 	it = _pickedBundleSet.find(ib);
 	if(it == _pickedBundleSet.end())
@@ -950,15 +990,21 @@ void StreamDeform::AddRemoveBundle(int ib)
 	else
 		_pickedBundleSet.erase(it);
 
+	ProcessAfterBundleChanged();
+}
+
+void StreamDeform::ProcessAfterBundleChanged()
+{
 	_pickedLineSet.clear();
 	for(set<int>::iterator it = _pickedBundleSet.begin(); it != _pickedBundleSet.end(); ++it)
 		_pickedLineSet.insert(_pickedLineSet.end(), _streamBundles[*it].begin(), _streamBundles[*it].end());
-	UpdateVertexLineIndex();
 
 	_pickedLineSetOrig = _pickedLineSet;
-
+	UpdateVertexLineIndex();
 	ProcessAllStream();
 }
+
+
 
 void StreamDeform::SetLensAxis(VECTOR2 startPoint, VECTOR2 endPoint)
 {
@@ -968,7 +1014,7 @@ void StreamDeform::SetLensAxis(VECTOR2 startPoint, VECTOR2 endPoint)
 	ellLens.x = centerPoint[0];
 	ellLens.y = centerPoint[1];
 	ellLens.a = dir.GetMag() * 0.5;
-	ellLens.b = ellLens.a * 0.5;
+	ellLens.b = ellLens.a * 0.3;
 	ellLens.angle = atan2( dir[1], dir[0]);
 	_focusEllipseSet.clear();
 	_focusEllipseSet.push_back(ellLens);
@@ -1210,29 +1256,6 @@ void StreamDeform::GetPickCube(VECTOR3 &min, VECTOR3 &max)
 	min = _pickBlockStart;
 	max = _pickBlockStart + _pickBlockSize;
 }
-
-void StreamDeform::PickBundle(int ib)
-{
-	_autoDeformMode = true;
-
-	_sourceMode = SOURCE_MODE::MODE_BUNDLE;
-
-	_pickedBundleSet.clear();
-	RestoreAllStream();
-	if(ib >= 0)
-	{
-		_pickedBundleSet.insert(ib);
-		_pickedLineSet.clear();
-		for(set<int>::iterator it = _pickedBundleSet.begin(); it != _pickedBundleSet.end(); ++it)
-			_pickedLineSet.insert(_pickedLineSet.end(), _streamBundles[*it].begin(), _streamBundles[*it].end());
-
-		_pickedLineSetOrig = _pickedLineSet;
-	}
-	UpdateVertexLineIndex();
-	ProcessAllStream();
-
-}
-
 void StreamDeform::ComputeNewPrimitives()
 {
 	//cout<<"_primitiveLengths.size()1:"<<_primitiveLengths.size()<<endl;
@@ -1357,7 +1380,7 @@ void StreamDeform::SetDomain(float pfMin[4], float pfMax[4])
 	_pickBlockStart = VECTOR3((pfMin[0] + pfMax[0]) * 0.5, (pfMin[1] + pfMax[1]) * 0.5, (pfMin[2] + pfMax[2]) * 0.5);
 	float size = ((pfMax[0] - pfMin[0]) + (pfMax[1] - pfMin[1]) + (pfMax[2] - pfMin[2])) * 0.02;
 	_pickBlockSize = VECTOR3(size, size, size);
-	_pickBlockMoveStep = size;
+	_pickBlockMoveStep = size * 0.5;
 
 	//VECTOR4 dataCenterObject, dataCenterClip;
 	//_lens_radius = _biggestSize * 0.1;
@@ -1497,7 +1520,7 @@ void StreamDeform::MovePickBlock(DIRECTION dir)
 
 		//cout<<"dir:"<<dir<<endl;
 	//GenStreamByBlock();
-	RestoreAllStream();
+	//RestoreAllStream();
 	ProcessAllStream();
 }
 
