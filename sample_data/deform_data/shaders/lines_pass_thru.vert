@@ -45,6 +45,7 @@ void main()
 	VetexColor =  ka * cc
 				+ kd*diffuseIntensity
 				+ ks*(specularItensity);
+	//VetexColor.a = 1.0;
 //	VetexColor = line_color;
 	gl_Position = vertex;//projectionMatrix * modelViewMatrix * vertex;
 	gl_Position = gl_Position / gl_Position.w;

@@ -200,35 +200,35 @@ void draw_streamlines()
 void
 _SpecialFunc(int skey, int x, int y)
 {
-	//DIRECTION dir;
-	//switch(skey)
-	//{
-	//case GLUT_KEY_LEFT:
-	//	dir = DIRECTION::DIR_LEFT;
-	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
-	//	break;
-	//case GLUT_KEY_RIGHT:
-	//	dir = DIRECTION::DIR_RIGHT;
-	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
-	//	break;
-	//case GLUT_KEY_DOWN:
-	//	dir = DIRECTION::DIR_DOWN;
-	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
-	//	break;
-	//case GLUT_KEY_UP:
-	//	dir = DIRECTION::DIR_UP;
-	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
-	//	break;
-	//case GLUT_KEY_PAGE_DOWN:
-	//	dir = DIRECTION::DIR_IN;
-	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
-	//	break;
-	//case GLUT_KEY_PAGE_UP:
-	//	dir = DIRECTION::DIR_OUT;
-	//	cLineRenderer.getDeformLine()->MovePickBlock(dir);
-	//	break;
-	//}
-	//glutPostRedisplay();
+	DIRECTION dir;
+	switch(skey)
+	{
+	case GLUT_KEY_LEFT:
+		dir = DIRECTION::DIR_LEFT;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		break;
+	case GLUT_KEY_RIGHT:
+		dir = DIRECTION::DIR_RIGHT;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		break;
+	case GLUT_KEY_DOWN:
+		dir = DIRECTION::DIR_DOWN;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		break;
+	case GLUT_KEY_UP:
+		dir = DIRECTION::DIR_UP;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		break;
+	case GLUT_KEY_PAGE_DOWN:
+		dir = DIRECTION::DIR_IN;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		break;
+	case GLUT_KEY_PAGE_UP:
+		dir = DIRECTION::DIR_OUT;
+		cLineRenderer.getDeformLine()->MovePickBlock(dir);
+		break;
+	}
+	glutPostRedisplay();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -274,7 +274,7 @@ void _MotionFunc(int x, int y)
 
 	_dragPrevPos = VECTOR2(x, y);
 
-	if(cLineRenderer.GetNewCutLine() == true)
+	if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::CUT_LINE)
 		cLineRenderer.SetCutLineCoords(VECTOR2(x, y), _dragStartPos);
 
 	//if(button==GLUT_RIGHT_BUTTON)
@@ -285,7 +285,7 @@ void _MouseFunc(int button, int state, int x, int y)
 {
 	//if(button==GLUT_RIGHT_BUTTON)
 	//{
-	if(cLineRenderer.GetNewCutLine() == true)
+	if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::CUT_LINE)
 	{
 		if(state==GLUT_DOWN)
 		{
@@ -293,8 +293,8 @@ void _MouseFunc(int button, int state, int x, int y)
 		}
 		else if(state==GLUT_UP)
 		{
-			if(cLineRenderer.GetNewCutLine())
-				cLineRenderer.CutLineFinish();
+			//if(cLineRenderer.GetNewCutLine())
+			cLineRenderer.CutLineFinish();
 			SetDisableTransformation(false);
 		}
 	}
@@ -302,13 +302,18 @@ void _MouseFunc(int button, int state, int x, int y)
 	{
 		if(state==GLUT_DOWN)
 		{
-			SetDisableTransformation(true);
 			_dragStartPos = VECTOR2(x, y);
 			cLineRenderer.SetDeformOn(false);
 			if(cLineRenderer.getDeformLine()->InsideFirstEllipse(x, y))
+			{
 				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::MOVE_LENS);
+				SetDisableTransformation(true);
+			}
 			else if(cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
+			{
 				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_EDGE);
+				SetDisableTransformation(true);
+			}
 			else
 				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::TRANSFORMATION);
 		}
@@ -316,6 +321,8 @@ void _MouseFunc(int button, int state, int x, int y)
 		{
 			cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::TRANSFORMATION);
 			cLineRenderer.SetDeformOn(true);
+			SetDisableTransformation(false);
+			cLineRenderer.getDeformLine()->UpdateLensScreen();
 			if(cLineRenderer.getDeformLine()->GetDeformMode() == DEFORM_MODE::MODE_LINE)
 				cLineRenderer.getDeformLine()->RedoDeformation();
 			else
@@ -643,7 +650,7 @@ void control_cb( int control )
 
 				break;
 			case 3:
-				cLineRenderer.getDeformLine()->SetDeformMode(MODE_AUTO);
+				cLineRenderer.getDeformLine()->SetAutoDeformMode(true);
 				break;
 			}
 

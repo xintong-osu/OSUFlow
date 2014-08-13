@@ -705,7 +705,8 @@ _TimerCB( int value)
 void
 	_IdleCB()
 {
-		
+	//cout<<"bMoving:"<<bMoving<<"\t";
+	//cout<<"_disableTransformation:"<<_disableTransformation<<endl;
 	if(bMoving && !_disableTransformation)
 	{
 		if(2 == _touchCoordsGCB.size() && GESTURE::NO_GESTURE == _currentGesture)		//if touch screen

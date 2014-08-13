@@ -684,7 +684,7 @@ CLineRendererInOpenGLDeform::_Draw()
 		}
 	}
 
-	if(_newCutLine && 
+	if(_deformLine.GetInteractMode() == INTERACT_MODE::CUT_LINE && 
 		!(_cutLine[0][0] == _cutLine[1][0] && _cutLine[0][0] == _cutLine[1][0]))
 		Draw2DLine(_cutLine[0], _cutLine[1]);
 
@@ -736,15 +736,19 @@ void CLineRendererInOpenGLDeform::DrawHull(std::vector<hull_type> hull)
 
 void CLineRendererInOpenGLDeform::SetNewCutLine(bool b)
 {
-	_newCutLine = b;
+	if(b)
+		_deformLine.SetInteractMode(INTERACT_MODE::CUT_LINE);
+	else
+		_deformLine.SetInteractMode(INTERACT_MODE::TRANSFORMATION);
+
 	_cutLine[0] = VECTOR2(0, 0);
 	_cutLine[1] = VECTOR2(0, 0);
 }
 
-bool CLineRendererInOpenGLDeform::GetNewCutLine()
-{
-	return _newCutLine;
-}
+//bool CLineRendererInOpenGLDeform::GetNewCutLine()
+//{
+//	return _newCutLine;
+//}
 
 
 void CLineRendererInOpenGLDeform::DrawEllipse()
@@ -902,6 +906,10 @@ void CLineRendererInOpenGLDeform::InitGL()
 	g_loc_projection = glGetUniformLocation(line_programID, "projectionMatrix");
     g_loc_modelView = glGetUniformLocation(line_programID, "modelViewMatrix");
     g_loc_color = glGetUniformLocation(line_programID,"line_color");
+
+	//enable transparency
+	glEnable (GL_BLEND);
+	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 StreamDeform* CLineRendererInOpenGLDeform::getDeformLine()
@@ -1003,7 +1011,7 @@ CLineRendererInOpenGLDeform::_Update()
 CLineRendererInOpenGLDeform::CLineRendererInOpenGLDeform(void)
 {
 
-	_newCutLine = false;
+	//_newCutLine = false;
 	_cutLine[0] = VECTOR2(0, 0);
 	_cutLine[1] = VECTOR2(0, 0);
 	_showCube = true;

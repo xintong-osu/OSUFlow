@@ -78,7 +78,7 @@ class CLineRendererInOpenGLDeform :
 
 	StreamDeform _deformLine;
 	//vector<vector<int>>* _bundle;
-	bool _newCutLine;
+	//bool _newCutLine;
 	VECTOR2 _cutLine[2];
 	bool _showCube;
 
@@ -215,7 +215,7 @@ public:
 	void PickBundle(int i);
 	void AddRemoveBundle(int i);
 	void SetNewCutLine(bool b);
-	bool GetNewCutLine();
+	//bool GetNewCutLine();
 	void CutLineFinish();
 	void SetCutLineCoords(VECTOR2 startPoint, VECTOR2 endPoint);
 	void SetWinSize(int w, int h);

@@ -308,11 +308,14 @@ StreamDeform::~StreamDeform(void)
 
 void StreamDeform::SetDeformMode(DEFORM_MODE mode)
 {
+	DEFORM_MODE preMode = _deformMode;
 	_deformMode = mode;
 	//RestoreStreamConnectivity();
 	//if(_deformMode == DEFORM_MODE::MODE_LINE)
 	//	resetOrigPos();
-	RedoDeformation();
+	//redo deformation only when the new mode is different
+	if(preMode != _deformMode)		
+		RedoDeformation();
 }
 
 void StreamDeform::SetInteractMode(INTERACT_MODE mode)
