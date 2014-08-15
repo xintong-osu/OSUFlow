@@ -10,7 +10,6 @@
 #include "Bundle.h"
 //#include "GenerateStreamline.h"
 
-
 #define COLOR2INDEX 256
 #include "modes.h"
 
@@ -30,6 +29,8 @@
 #include <CGAL\HalfedgeDS_decorator.h>
 #include <CGAL/Delaunay_triangulation_3.h>
 #include <CGAL/Alpha_shape_3.h>
+
+#include <thrust\host_vector.h>
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Polyhedron_3<K>                     Polyhedron_3;
@@ -61,7 +62,6 @@ typedef CGAL::Triangle_2<K> Triangle_2;
 typedef CGAL::Triangulation_2<K> Triangulation_2;
 
 using namespace std;
-
 
 
 struct polyline{
@@ -199,9 +199,9 @@ class StreamDeform
 {
 	vector<VECTOR4*> _primitiveBases;
 	vector<int> _primitiveLengths;
-	vector<int> _primitiveOffsets;
+	thrust::host_vector<int> _primitiveOffsets;
 	vector<int> _primitiveLengthsOrig;
-	vector<int> _primitiveOffsetsOrig;
+	thrust::host_vector<int> _primitiveOffsetsOrig;
 	vector<VECTOR4> _primitiveColors;
 
     float4 *_d_raw_clip;
@@ -353,7 +353,7 @@ class StreamDeform
 	ellipse _ellLens;
 	//float _lensDepth_clip;
 	//VECTOR2 _lens_center_screen;
-	bool _onEllipseEndPt;
+	//bool _onEllipseEndPt;
 	bool _onLongAxisEndPt;
 	float _lensChangeStep;
 
@@ -459,6 +459,8 @@ public:
 	void MoveLensCenterOnScreen(float dx, float dy);
 	void MoveLensEndPtOnScreen(float x, float y);
 
+	void MoveLensTwoEndPtOnScreen(float x1, float y1, float x2, float y2);
+
 	float* GetLensCenter();
 	SOURCE_MODE GetSourceMode();
 	void ChangeLensRadius(int m);
@@ -470,18 +472,20 @@ public:
 	//void ChangeLensRatio(int m);
 	bool InsideFirstEllipse(float x, float y);
 	bool OnEllipseEndPoint(float x, float y);
+	bool OnEllipseTwoEndPoints(float x1, float y1,  float x2, float y2);
+	vector<VECTOR2> GetEllipseEndPoints();
 
 	void GetPickCube(VECTOR3 &min, VECTOR3 &max);
 	std::vector<hull_type>* GetHull();
 	vector<int> GetPrimitiveLengths();
-	vector<int> GetPrimitiveOffsets();
+	thrust::host_vector<int> GetPrimitiveOffsets();
 	//vector<int> GetPrimitiveLengthsRender();
 	//vector<int> GetPrimitiveOffsetsRender();
 	int* GetStreamBundleIndex();
 	int GetVertexLineIndex(int i);
 	bool GetLinePicked(int il);
 	bool GetLinePickedOrig(int il);
-	vector<bool> _isCutPoint;		//has to be public
+	thrust::host_vector<bool> _isCutPoint;		//has to be public
 	void RestoreStreamConnectivity();
 
 	void LineLensProcess();

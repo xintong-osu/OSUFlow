@@ -13,8 +13,7 @@ May,2010
 
 #include "gcb2.h"
 #include "GL\glui.h"
-#include <map>
-#include "VectorMatrix.h"
+
 using namespace std;
 
 ///////////////////////////////////////////////////////////////
@@ -56,8 +55,8 @@ void (*_MouseFunc)(int button, int state, int x, int y);
 void (*_MotionFunc)(int x, int y);
 void (*_PassiveMotionFunc)(int x, int y);
 void (*_MouseWheelFunc)( int wheel, int direction, int x, int y );
-void (*_MultiMotionFunc)(int id, int x, int y, GESTURE g);
-void (*_MultiEntryFunc)(int id, int mode);
+void (*_MultiMotionFunc)(int id, int x, int y, GESTURE g, map<int, vector<VECTOR2>>);
+void (*_MultiEntryFunc)(int id, int mode, map<int, vector<VECTOR2>> touchCoords);
 //ADD-BY-TONG 02/13/2013-END
 
 ///////////////////////////////////////////////////////////////
@@ -607,6 +606,7 @@ _MultiMotionCB(int id, int x, int y)
 		vector<VECTOR2> pts;
 		pts.push_back(VECTOR2(x, y));
 		_touchCoordsGCB.insert(std::pair<int, vector<VECTOR2>>(id, pts));
+		//cout<<"_touchCoordsGCB.size():"<<_touchCoordsGCB.size()<<endl;
 	} else {
 		_touchCoordsGCB.find(id)->second.push_back(VECTOR2(x, y));
 		if(_touchCoordsGCB.size() > 1 && ( 0 == _touchCoordsGCB.find(id)->second.size() % 16))	{
@@ -626,8 +626,9 @@ _MultiMotionCB(int id, int x, int y)
 			}
 		}
 	}
+	cout<<"_touchCoordsGCB.size():"<<_touchCoordsGCB.size()<<endl;
 	if(_MultiMotionFunc)
-		_MultiMotionFunc(id, x, y, _currentGesture);
+		_MultiMotionFunc(id, x, y, _currentGesture, _touchCoordsGCB);
 }
 
 void _MultiEntryCB(int id, int mode)
@@ -644,7 +645,7 @@ void _MultiEntryCB(int id, int mode)
 		_touchCoordsGCB.erase(id);
 	}
 	if(_MultiEntryFunc)
-		_MultiEntryFunc(id, mode);
+		_MultiEntryFunc(id, mode, _touchCoordsGCB);
 //	std::cout<<"entry"<<id<<std::endl;
 }
 
@@ -838,12 +839,12 @@ gcbMouseWheelFunc(void (*_MyMouseWheelFunc)(int, int, int, int))
 
 //ADD-BY-TONG 02/13/2013-END
 
-void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE))
+void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE, map<int, vector<VECTOR2>>))
 {
 	_MultiMotionFunc = _MyMultiMotionFunc;
 }
 
-void gcbMultiEntryFunc(void (*_MyMultiEntryFunc)(int, int))
+void gcbMultiEntryFunc(void (*_MyMultiEntryFunc)(int, int, map<int, vector<VECTOR2>>))
 {
 	_MultiEntryFunc = _MyMultiEntryFunc;
 }

@@ -84,6 +84,8 @@ using namespace std;
 
 #define	_USE_MATH_DEFINES
 #include <math.h>
+#include <map>
+#include "VectorMatrix.h"
 
 // my own useful macros
 // ADD-BY-LEETEN 08/13/2010-BEGIN
@@ -186,8 +188,9 @@ void gcbMouseFunc(void (*_MyMouseFunc)(int, int, int, int));
 void gcbMotionFunc(void (*_MyMotionFunc)(int, int));
 void gcbPassiveMotionFunc(void (*_PassiveMyMotionFunc)(int, int));
 void gcbMouseWheelFunc(void (*_MyMouseWheelFunc)(int, int, int, int));
-void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE));
-void gcbMultiEntryFunc(void (*_MyMultiEntryFunc)(int, int));
+void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE, map<int, vector<VECTOR2>>));
+//void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE, map<int, vector<VECTOR2>>));
+void gcbMultiEntryFunc(void (*_MyMultiEntryFunc)(int, int, map<int, vector<VECTOR2>>));
 void SetDisableTransformation(bool b);
 //ADD-BY-TONG 02/13/2013-END
 

@@ -37,14 +37,20 @@ void main()
 	vec4 kd = vec4(0.25f, 0.25f, 0.25f, 1.0f);
 	vec4 ka = vec4(0.7, 0.7, 0.7, 1.0);
 	vec4 cc;
-	if(line_color.a > 0.6 )
+	if(line_color.a > 0.6)
+	{
 		cc = vertexObjectColor;
-	else 
-		cc = vec4(line_color.x, line_color.y, line_color.z, 1.0);
-
-	VetexColor =  ka * cc
+		VetexColor =  ka * cc
 				+ kd*diffuseIntensity
 				+ ks*(specularItensity);
+	//	VetexColor.a = 0.3;
+	}
+	else 
+		VetexColor = vec4(line_color.x, line_color.y, line_color.z, 0.5);
+//		VetexColor = vec4(0.01,0.01,0.01,0.3);
+		
+
+	
 	//VetexColor.a = 1.0;
 //	VetexColor = line_color;
 	gl_Position = vertex;//projectionMatrix * modelViewMatrix * vertex;

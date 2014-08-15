@@ -526,22 +526,53 @@ bool StreamDeform::InsideFirstEllipse(float x, float y)
 	return dist2Center < 0.8 * radius;
 }
 
-bool StreamDeform::OnEllipseEndPoint(float x, float y)
+vector<VECTOR2> StreamDeform::GetEllipseEndPoints()
 {
-	float angle = atan2(y - _focusEllipseSet.front().y, x - _focusEllipseSet.front().x) + M_PI;
+	float angle = _focusEllipseSet[0].angle;//atan2(y - _focusEllipseSet.front().y, x - _focusEllipseSet.front().x) + M_PI;
 	vector<VECTOR2> endPoints;
 	for(float t = 0; t < M_PI * 2; t += (M_PI * 0.5))
 	{
-		float x = _focusEllipseSet[0].x + _focusEllipseSet[0].a * cos(t) * cos(angle) - _focusEllipseSet[0].b * sin(t) * sin(_focusEllipseSet[0].angle);
-		float y = _focusEllipseSet[0].y + _focusEllipseSet[0].a * cos(t) * sin(angle) + _focusEllipseSet[0].b * sin(t) * cos(_focusEllipseSet[0].angle);
+		float x = _focusEllipseSet[0].x + _focusEllipseSet[0].a * cos(t) * cos(angle) - _focusEllipseSet[0].b * sin(t) * sin(angle);
+		float y = _focusEllipseSet[0].y + _focusEllipseSet[0].a * cos(t) * sin(angle) + _focusEllipseSet[0].b * sin(t) * cos(angle);
 		endPoints.push_back(VECTOR2(x,y));
 	}
-	_onEllipseEndPt = false;
+	return endPoints;
+}
+
+inline bool PointsClose(VECTOR2 v1, VECTOR2 v2)
+{
+	return (v1 - v2).GetMag() < 32.0;
+}
+
+bool StreamDeform::OnEllipseTwoEndPoints(float x1, float y1,  float x2, float y2)
+{
+	bool onEllipseEndPt;
+	vector<VECTOR2> endPoints = GetEllipseEndPoints();
+	if(		(PointsClose(VECTOR2(x1, y1), endPoints[0]) && PointsClose(VECTOR2(x2, y2), endPoints[2]))
+		||	(PointsClose(VECTOR2(x2, y2), endPoints[0]) && PointsClose(VECTOR2(x1, y1), endPoints[2])))
+	{
+		onEllipseEndPt = true;
+		_onLongAxisEndPt = true;
+	}	else if
+		(	(PointsClose(VECTOR2(x1, y1), endPoints[1]) && PointsClose(VECTOR2(x2, y2), endPoints[3]))
+		||	(PointsClose(VECTOR2(x2, y2), endPoints[1]) && PointsClose(VECTOR2(x1, y1), endPoints[3])))
+	{
+		onEllipseEndPt = true;
+		_onLongAxisEndPt = false;
+	}
+	return onEllipseEndPt;
+}
+
+bool StreamDeform::OnEllipseEndPoint(float x, float y)
+{
+	bool onEllipseEndPt;
+	vector<VECTOR2> endPoints = GetEllipseEndPoints();
+	onEllipseEndPt = false;
 	for(int i = 0; i < endPoints.size(); i++)
 	{
-		if((VECTOR2(x, y) - endPoints[i]).GetMag() < 32.0)
+		if(PointsClose(VECTOR2(x, y), endPoints[i]))
 		{
-			_onEllipseEndPt = true;
+			onEllipseEndPt = true;
 			if(i == 0 || i == 2)
 				_onLongAxisEndPt = true;
 			else
@@ -549,7 +580,7 @@ bool StreamDeform::OnEllipseEndPoint(float x, float y)
 			break;
 		}
 	}
-	return _onEllipseEndPt;
+	return onEllipseEndPt;
 }
 
 void StreamDeform::ChangeLensDepth(int m)
@@ -609,6 +640,29 @@ void StreamDeform::MoveLensEndPtOnScreen(float x, float y)
 {
 	VECTOR2 lens_center_screen = VECTOR2(_focusEllipseSet.front().x, _focusEllipseSet.front().y);
 	VECTOR2 dirFromCenter = VECTOR2(x, y) - lens_center_screen;
+	float angle = atan2(dirFromCenter[1], dirFromCenter[0]);
+	float length = dirFromCenter.GetMag();// Screen2ObjectLength(dirFromCenter.GetMag(), _lensDepth_clip);
+
+	if(_onLongAxisEndPt)
+	{
+		//_lensEllipseRatio = dirFromCenter.GetMag() / _focusEllipseSet[0].b;
+		_focusEllipseSet.front().a = length;
+	}
+	else
+	{
+		_focusEllipseSet.front().b = length;
+		angle += (M_PI * 0.5);
+	}
+	if(angle < 0)
+		angle += M_PI;
+	_focusEllipseSet.front().angle = angle ;
+	//ProcessAllStream();
+}
+
+void StreamDeform::MoveLensTwoEndPtOnScreen(float x1, float y1, float x2, float y2)
+{
+	VECTOR2 lens_center_screen = ( VECTOR2(x1, y1) + VECTOR2(x2, y2) ) * 0.5;
+	VECTOR2 dirFromCenter = VECTOR2(x1, y1) - lens_center_screen;
 	float angle = atan2(dirFromCenter[1], dirFromCenter[0]);
 	float length = dirFromCenter.GetMag();// Screen2ObjectLength(dirFromCenter.GetMag(), _lensDepth_clip);
 
@@ -973,6 +1027,8 @@ void StreamDeform::PickBundle(int ib)
 	_pickedBundleSet.clear();
 	_pickedBundleSet.insert(ib);
 
+	//we still need to restore before cutting line
+	//because we need the focus streamlines to be the original shape to analize its convex hull
 	RestoreAllStream();
 	ProcessAfterBundleChanged();
 }
@@ -1190,7 +1246,7 @@ vector<int> StreamDeform::GetPrimitiveLengths()
 	return _primitiveLengths;
 }
 
-vector<int> StreamDeform::GetPrimitiveOffsets()
+thrust::host_vector<int> StreamDeform::GetPrimitiveOffsets()
 {
 	return _primitiveOffsets;
 }

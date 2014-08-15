@@ -309,7 +309,7 @@ void _MouseFunc(int button, int state, int x, int y)
 				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::MOVE_LENS);
 				SetDisableTransformation(true);
 			}
-			else if(cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
+			else if(1 == _touchCoords.size() && cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
 			{
 				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_EDGE);
 				SetDisableTransformation(true);
@@ -323,10 +323,10 @@ void _MouseFunc(int button, int state, int x, int y)
 			cLineRenderer.SetDeformOn(true);
 			SetDisableTransformation(false);
 			cLineRenderer.getDeformLine()->UpdateLensScreen();
-			if(cLineRenderer.getDeformLine()->GetDeformMode() == DEFORM_MODE::MODE_LINE)
-				cLineRenderer.getDeformLine()->RedoDeformation();
-			else
-				cLineRenderer.getDeformLine()->ProcessAllStream();
+			//if(cLineRenderer.getDeformLine()->GetDeformMode() == DEFORM_MODE::MODE_LINE)
+			cLineRenderer.getDeformLine()->ProcessAllStream();
+			//else
+			//	cLineRenderer.getDeformLine()->ProcessAllStream();
 		}
 
 	}
@@ -376,8 +376,9 @@ void _TimerFunc(int value)
 	glutTimerFunc(REFRESH_DELAY, _TimerFunc,0);
 }
 
-void _MultiMotionFunc(int id, int x, int y, GESTURE g)
+void _MultiMotionFunc(int id, int x, int y, GESTURE g, map<int, vector<VECTOR2>> touchCoords)
 {
+	_touchCoords = touchCoords;
 //	cout<<"id:\t"<<id<<endl;
 //	_touchCoords.insert(id, );
 	//SetTouchStatus(_touchCoords.size() > 1 );
@@ -393,6 +394,18 @@ void _MultiMotionFunc(int id, int x, int y, GESTURE g)
 	case GESTURE::NO_GESTURE:
 		break;
 	}
+
+
+	
+	if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::DRAG_LENS_TWO_ENDS)
+	{
+		VECTOR2 finger1 = touchCoords.begin()->second.back();
+		VECTOR2 finger2 = touchCoords.end()->second.back();
+		//if(cLineRenderer.getDeformLine()->OnEllipseTwoEndPoints(finger1[0], finger1[1], finger2[0], finger2[1]))
+		cLineRenderer.getDeformLine()->MoveLensTwoEndPtOnScreen(finger1[0], finger1[1], finger2[0], finger2[1]);
+	}
+
+
 	glutPostRedisplay();
 	
 	//if(_touchCoords.end() == _touchCoords.find(id))	{
@@ -420,8 +433,19 @@ void _MultiMotionFunc(int id, int x, int y, GESTURE g)
 	//}
 }
 
-void _MultiEntryFunc(int id, int mode)
+void _MultiEntryFunc(int id, int mode, map<int, vector<VECTOR2>> touchCoords)
 {
+	_touchCoords = touchCoords;
+	cout<<"touchCoords.size():"<<touchCoords.size()<<endl;
+	if(2 == touchCoords.size())
+	{
+		VECTOR2 finger1 = touchCoords.begin()->second.back();
+		VECTOR2 finger2 = touchCoords.end()->second.back();
+		if(cLineRenderer.getDeformLine()->OnEllipseTwoEndPoints(finger1[0], finger1[1], finger2[0], finger2[1]))
+			cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_TWO_ENDS);
+	}
+	//if(2 == touchCoords.size() )
+	//	cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::);
 	//if(mode == GLUT_ENTERED)
 	//{
 	//	_deviceId.insert(id);

@@ -7,6 +7,7 @@
 #include <cuda_runtime_api.h>
 #include <iostream>
 #include <VectorMatrix.h>
+#include "thrust\host_vector.h"
 
 #define HULL_SIZE 128
 #define TEST_PERFORMANCE -1
@@ -65,13 +66,13 @@ void SetPickedLineSet(std::vector<int> *pickedLineSet);
 
 void SetVertexCoords(float* data, int n);
 
-std::vector<bool> ComputeCutPoints();
+thrust::host_vector<bool> ComputeCutPoints();
 
 //void SetHull(float* data, int nv, float center_x, float center_y);
 void SetHull(std::vector<hull_type> *hullSet);
 
 //void SetPrimitiveLength(std::vector<int> data);
-void SetPrimitive(std::vector<int> data, std::vector<int> &offset);
+void SetPrimitive(std::vector<int> data, thrust::host_vector<int> &offset);
 
 void SetParaCUDA(float eps);
 

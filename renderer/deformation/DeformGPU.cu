@@ -802,7 +802,7 @@ __device__  inline bool doIntersect(float2 p1, float2 q1, float2 p2, float2 q2)
 
 struct functor_ComputeCutPointsWithLine
 {
-	bool *isCutPoint;
+//	bool *isCutPoint;
 	ellipse* ellipseSet;
 	int numEllipses;
 	float2* posScreen;
@@ -811,35 +811,66 @@ struct functor_ComputeCutPointsWithLine
 	template <typename T>
 	__device__ void operator() (T t)
 	{
-		int offset = thrust::get<0>(t);
-		int length = thrust::get<1>(t);
-		for(int i = 0; i < (length - 1); i++)
+		int isCutPoint = thrust::get<0>(t);
+		int index = thrust::get<1>(t);
+		if(lineIndex[index] < 0)
+			return;
+		for(int j = 0; j < numEllipses; j++)
 		{
-			int index = offset + i;
-			if(lineIndex[index] < 0)
-				return;
-			for(int j = 0; j < numEllipses; j++)
-			{
-				ellipse e = ellipseSet[j];
-				float2 line[2];
-				line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
-				line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
-				if(doIntersect(
-					posScreen[index], posScreen[index + 1], 
-					line[0], line[1]))
-					isCutPoint[index] = true;
-			}
+			ellipse e = ellipseSet[j];
+			float2 line[2];
+			line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+			line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+			if(doIntersect(
+				posScreen[index], posScreen[index + 1], 
+				line[0], line[1]))
+				thrust::get<0>(t) = true;
 		}
 	}
 
-	functor_ComputeCutPointsWithLine(bool *_isCutPoint, 
+	functor_ComputeCutPointsWithLine(
 		ellipse* _ellipseSet, int _numEllipses, float2* _posScreen, int* _lineIndex)
 	{
-		isCutPoint = _isCutPoint;
 		ellipseSet = _ellipseSet;
 		numEllipses = _numEllipses;
 		posScreen = _posScreen;
 		lineIndex = _lineIndex;
+	}
+};
+
+struct functor_ComputeCutPoints
+{
+	bool *isCutPoint;
+
+	//template <typename T>
+	__device__ void operator() (int offset)
+	{
+		//int offset = thrust::get<0>(t);
+		if(0 != offset)
+			isCutPoint[offset - 1] = true;
+		//int length = thrust::get<1>(t);
+		//for(int i = 0; i < (length - 1); i++)
+		//{
+		//	int index = offset + i;
+		//	if(lineIndex[index] < 0)
+		//		return;
+		//	for(int j = 0; j < numEllipses; j++)
+		//	{
+		//		ellipse e = ellipseSet[j];
+		//		float2 line[2];
+		//		line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+		//		line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+		//		if(doIntersect(
+		//			posScreen[index], posScreen[index + 1], 
+		//			line[0], line[1]))
+		//			isCutPoint[index] = true;
+		//	}
+		//}
+	}
+
+	functor_ComputeCutPoints(bool *_isCutPoint)
+	{
+		isCutPoint = _isCutPoint;
 	}
 };
 
@@ -893,57 +924,38 @@ struct functor_Screen2ObjectOnSamePlane
 	}
 };
 
-
-
-std::vector<bool> ComputeCutPoints()
+thrust::host_vector<bool> ComputeCutPoints()
 {
 	std::vector<bool>  isCutPoint;
-	thrust::device_vector<bool> _d_vec_IsCutPoint;
-	_d_vec_IsCutPoint.assign(_nv, false);
+	thrust::device_vector<bool> d_vec_IsCutPoint;
+	d_vec_IsCutPoint.assign(_nv, false);
 	
-	thrust::device_vector<float2> d_vec_origPosScreen(_nv);
-	thrust::device_vector<float4> d_vec_origPosClip(_nv);
-	thrust::transform(_d_vec_origPos.begin(), _d_vec_origPos.end(), d_vec_origPosClip.begin(), functor_Object2Clip());
-	thrust::transform(d_vec_origPosClip.begin(), d_vec_origPosClip.end(), d_vec_origPosScreen.begin(), functor_Clip2Screen());
-
-	//thrust::transform(_d_vec_pos.begin(), _d_vec_pos.end(), _d_ptr_posClip, functor_Object2Clip());
-	//thrust::transform(_d_ptr_posClip, _d_ptr_posClip + _nv, d_vec_posScreen.begin(), functor_Clip2Screen());
-
-
-
-	//thrust::for_each(
-	//	thrust::make_zip_iterator(thrust::make_tuple(
-	//		d_vec_posScreen.begin(), _d_vec_lineIndex.begin())),
-	//	thrust::make_zip_iterator(thrust::make_tuple(
-	//		d_vec_posScreen.end(), _d_vec_lineIndex.end())),
-	//	functor_PushFromLine(
-	//		thrust::raw_pointer_cast(d_vec_ellipseSet.data()),
-	//		d_vec_ellipseSet.size())
-	//		);
-
-	//thrust::for_each( 
-	//	thrust::make_zip_iterator(thrust::make_tuple(
-	//		_d_vec_pos.begin(), _d_ptr_posClip, d_vec_posScreen.begin())),
-	//	thrust::make_zip_iterator(thrust::make_tuple(
-	//		_d_vec_pos.end(), _d_ptr_posClip + _nv, d_vec_posScreen.end())),
-	//	functor_Screen2ObjectOnSamePlane());
+	thrust::device_vector<float2> d_vec_posScreen(_nv);
+	thrust::device_vector<float4> d_vec_posClip(_nv);
+	thrust::transform(_d_vec_pos.begin(), _d_vec_pos.end(), d_vec_posClip.begin(), functor_Object2Clip());
+	thrust::transform(d_vec_posClip.begin(), d_vec_posClip.end(), d_vec_posScreen.begin(), functor_Clip2Screen());
 
 	thrust::device_vector<ellipse> d_vec_ellipseSet = *_h_vec_ellipseSet;
+	//we should consider the last element of each streamline also as a cut point
+	/////!!!!!!!here should be using the new offsets!!!!!!
+	thrust::for_each(d_vec_streamlineOffsets.begin(), d_vec_streamlineOffsets.end(),
+		functor_ComputeCutPoints(
+			thrust::raw_pointer_cast(d_vec_IsCutPoint.data())
+			));
+
 	thrust::for_each(
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin())),
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end())),
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_IsCutPoint.begin(),counting_zero)),
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_IsCutPoint.end(), counting_zero+ d_vec_IsCutPoint.size())),
 		functor_ComputeCutPointsWithLine(
-			thrust::raw_pointer_cast(_d_vec_IsCutPoint.data()), 
+			//thrust::raw_pointer_cast(d_vec_IsCutPoint.data()), 
 			thrust::raw_pointer_cast(d_vec_ellipseSet.data()),
 			_h_vec_ellipseSet->size(),
-			thrust::raw_pointer_cast(d_vec_origPosScreen.data()),
+			thrust::raw_pointer_cast(d_vec_posScreen.data()),
 			thrust::raw_pointer_cast(_d_vec_lineIndex.data()))
 			);
 
-	thrust::host_vector<bool> h_vec_IsCutPoint = _d_vec_IsCutPoint;
-	for(int i = 0; i < h_vec_IsCutPoint.size(); i++)
-		isCutPoint.push_back(h_vec_IsCutPoint[i]);
-	return isCutPoint;
+	thrust::host_vector<bool> h_vec_IsCutPoint = d_vec_IsCutPoint;
+	return h_vec_IsCutPoint;
 }
 
 
@@ -1003,7 +1015,7 @@ void SetPickedLineSet(std::vector<int> *pickedLineSet)
 	_pickedLineSet = pickedLineSet;
 }
 
-void SetPrimitive(std::vector<int> data, std::vector<int> &offset)
+void SetPrimitive(std::vector<int> data, thrust::host_vector<int> &offset)
 {
 	int numLines = data.size();
 	d_vec_streamlineLengths.resize(numLines);
@@ -1014,13 +1026,13 @@ void SetPrimitive(std::vector<int> data, std::vector<int> &offset)
 	//cout<<"size of d_vec_streamlineLengths:"<<d_vec_streamlineLengths.size();
 	thrust::exclusive_scan(d_vec_streamlineLengths.begin(), d_vec_streamlineLengths.end(), d_vec_streamlineOffsets.begin());
 	//cout<<"size of offsets:"<<d_vec_streamlineOffsets.end() - d_vec_streamlineOffsets.begin()<<endl;
-	thrust::host_vector<int> h_vec_offset = d_vec_streamlineOffsets;
-	for(int i = 0; i < h_vec_offset.size(); i++)
-		offset.push_back(h_vec_offset[i]);
+	offset = d_vec_streamlineOffsets;
+	//for(int i = 0; i < h_vec_offset.size(); i++)
+	//	offset.push_back(h_vec_offset[i]);
 
 	thrust::for_each(
 		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin(), counting_zero)),
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + h_vec_offset.size())),
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + offset.size())),
 		functor_GenLineIndex(thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndexOrig.data())));
 	check_cuda_errors(__FILE__, __LINE__);
 }

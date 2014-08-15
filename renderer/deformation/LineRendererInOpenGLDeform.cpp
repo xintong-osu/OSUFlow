@@ -582,7 +582,7 @@ CLineRendererInOpenGLDeform::_Draw()
 	glVertexAttribPointer(g_loc_tangent, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	VECTOR4 cyan(0.0f, 1.0f, 1.0f, 1.0f);
 	
-	vector<int> streamOffsetsRender = _deformLine.GetPrimitiveOffsets();
+	thrust::host_vector<int> streamOffsetsRender = _deformLine.GetPrimitiveOffsets();
 	vector<int> streamLengthsRender = _deformLine.GetPrimitiveLengths();
 	if(bIsHaloEnabled )
 	{
@@ -606,7 +606,7 @@ CLineRendererInOpenGLDeform::_Draw()
 		glDepthFunc(GL_LEQUAL);
 	}
 
-	glLineWidth(cLine.fWidth * 2 );
+	glLineWidth(cLine.fWidth * 2);
 	
 	for(int il = 0; il < streamLengthsRender.size(); il++)
 	{
@@ -614,8 +614,6 @@ CLineRendererInOpenGLDeform::_Draw()
 		glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[0] + streamOffsetsRender[il], 
 			streamLengthsRender[il]);
 	}
-
-
 
 	//draw other features 
 	//draw lens center
