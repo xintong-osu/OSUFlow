@@ -601,6 +601,7 @@ _MouseWheelCB(int wheel, int direction, int x, int y)
 void 
 _MultiMotionCB(int id, int x, int y)
 {
+	y = piViewport[3] - y;
 	_currentGesture = GESTURE::NO_GESTURE;
 	if(_touchCoordsGCB.end() == _touchCoordsGCB.find(id))	{
 		vector<VECTOR2> pts;
@@ -637,6 +638,9 @@ void _MultiEntryCB(int id, int mode)
 	{
 		//_deviceId.insert(id);
 		//cout<<"entered"<<endl;
+		vector<VECTOR2> pts;
+		//pts.push_back(VECTOR2(0, 0));
+		_touchCoordsGCB.insert(std::pair<int, vector<VECTOR2>>(id, pts));
 	}
 	else if(mode == GLUT_LEFT)
 	{

@@ -198,9 +198,9 @@ struct point3
 class StreamDeform
 {
 	vector<VECTOR4*> _primitiveBases;
-	vector<int> _primitiveLengths;
+	thrust::host_vector<int> _primitiveLengths;
 	thrust::host_vector<int> _primitiveOffsets;
-	vector<int> _primitiveLengthsOrig;
+	thrust::host_vector<int> _primitiveLengthsOrig;
 	thrust::host_vector<int> _primitiveOffsetsOrig;
 	vector<VECTOR4> _primitiveColors;
 
@@ -477,7 +477,7 @@ public:
 
 	void GetPickCube(VECTOR3 &min, VECTOR3 &max);
 	std::vector<hull_type>* GetHull();
-	vector<int> GetPrimitiveLengths();
+	thrust::host_vector<int> GetPrimitiveLengths();
 	thrust::host_vector<int> GetPrimitiveOffsets();
 	//vector<int> GetPrimitiveLengthsRender();
 	//vector<int> GetPrimitiveOffsetsRender();

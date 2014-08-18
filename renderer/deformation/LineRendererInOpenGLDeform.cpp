@@ -583,7 +583,7 @@ CLineRendererInOpenGLDeform::_Draw()
 	VECTOR4 cyan(0.0f, 1.0f, 1.0f, 1.0f);
 	
 	thrust::host_vector<int> streamOffsetsRender = _deformLine.GetPrimitiveOffsets();
-	vector<int> streamLengthsRender = _deformLine.GetPrimitiveLengths();
+	thrust::host_vector<int> streamLengthsRender = _deformLine.GetPrimitiveLengths();
 	if(bIsHaloEnabled )
 	{
 		// pass 1: draw the halo

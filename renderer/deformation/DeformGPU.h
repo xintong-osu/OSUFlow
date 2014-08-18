@@ -66,13 +66,16 @@ void SetPickedLineSet(std::vector<int> *pickedLineSet);
 
 void SetVertexCoords(float* data, int n);
 
-thrust::host_vector<bool> ComputeCutPoints();
+void ComputeCutPoints();
 
 //void SetHull(float* data, int nv, float center_x, float center_y);
 void SetHull(std::vector<hull_type> *hullSet);
 
 //void SetPrimitiveLength(std::vector<int> data);
-void SetPrimitive(std::vector<int> data, thrust::host_vector<int> &offset);
+//void SetPrimitive(std::vector<int> data, thrust::host_vector<int> &offset);
+void SetPrimitive(thrust::host_vector<int> &length, thrust::host_vector<int> &offset);
+
+void GetPrimitive(thrust::host_vector<int> &offsets, thrust::host_vector<int> &lengths);
 
 void SetParaCUDA(float eps);
 
@@ -93,6 +96,8 @@ void SetMode(DEFORM_MODE *deformMode, SOURCE_MODE *sourceMode);
 std::vector<VECTOR2> GetPosScreenOrig();
 
 void AssignLineIndexFromDevice(int *data);
+
+void UpdateVertexLineIndexGPU();
 
 //void SetStreamDeform(void* sd);
 

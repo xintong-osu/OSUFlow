@@ -546,7 +546,7 @@ inline bool PointsClose(VECTOR2 v1, VECTOR2 v2)
 
 bool StreamDeform::OnEllipseTwoEndPoints(float x1, float y1,  float x2, float y2)
 {
-	bool onEllipseEndPt;
+	bool onEllipseEndPt = true;
 	vector<VECTOR2> endPoints = GetEllipseEndPoints();
 	if(		(PointsClose(VECTOR2(x1, y1), endPoints[0]) && PointsClose(VECTOR2(x2, y2), endPoints[2]))
 		||	(PointsClose(VECTOR2(x2, y2), endPoints[0]) && PointsClose(VECTOR2(x1, y1), endPoints[2])))
@@ -679,6 +679,23 @@ void StreamDeform::MoveLensTwoEndPtOnScreen(float x1, float y1, float x2, float 
 	if(angle < 0)
 		angle += M_PI;
 	_focusEllipseSet.front().angle = angle ;
+	_focusEllipseSet.front().x = lens_center_screen[0];
+	_focusEllipseSet.front().y = lens_center_screen[1];
+
+	
+	VECTOR4 lens_center_clip = Object2Clip(_lensCenterObject, _ModelViewMatrix, _ProjectionMatrix);
+
+	//VECTOR2 lensCenterScreen;
+
+	//lensCenterScreen[0] = _focusEllipseSet.front().x;
+	//lensCenterScreen[1] = _focusEllipseSet.front().y;
+
+	VECTOR2 lensCenterClipXY = Screen2Clip(lens_center_screen, winWidth, winHeight);
+
+	VECTOR4 lensCenterClipNew(lensCenterClipXY[0], lensCenterClipXY[1], lens_center_clip[2], 1);
+
+	_lensCenterObject = Clip2Object(lensCenterClipNew, _invModelViewMatrixf, _invProjectionMatrixf);
+
 	//ProcessAllStream();
 }
 
@@ -883,10 +900,14 @@ void StreamDeform::RunCuda()
 
 void StreamDeform::LineLensProcess()
 {
-	_isCutPoint = ComputeCutPoints();
-	ComputeNewPrimitives();
-	AssignLineIndexFromDevice(_vertexLineIndex);
-	UpdateVertexLineIndexForCut();
+	UpdateVertexLineIndexGPU();
+	/*_isCutPoint = */ComputeCutPoints();
+	//cout<<"**here"<<endl;
+	GetPrimitive(_primitiveOffsets, _primitiveLengths);
+	//UpdateVertexLineIndexGPU();
+//	ComputeNewPrimitives();
+//	AssignLineIndexFromDevice(_vertexLineIndex);
+//	UpdateVertexLineIndexForCut();
 }
 
 void StreamDeform::GetModelViewMatrix(float matrix[16])
@@ -910,9 +931,12 @@ void StreamDeform::ProcessCut()
 	if(_picked3DHulls.size() > 0)
 	{
 		GenHullEllipse();
-		_isCutPoint = ComputeCutPoints();
-		ComputeNewPrimitives();
-		UpdateVertexLineIndex();
+		UpdateVertexLineIndexGPU();
+		/*_isCutPoint = */ComputeCutPoints();           
+		GetPrimitive(_primitiveOffsets, _primitiveLengths);
+		//ComputeNewPrimitives();
+		//UpdateVertexLineIndex();
+		//UpdateVertexLineIndexGPU();
 	}
 }
 
@@ -930,9 +954,10 @@ void StreamDeform::ProcessAllStream()
 #if (TEST_PERFORMANCE == 1)
 	clock_t t0 = clock();
 #endif
-	if(SOURCE_MODE::MODE_LENS == _sourceMode)
-		LensTouchLine();
-	else if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
+	//if(SOURCE_MODE::MODE_LENS == _sourceMode)
+	//	LensTouchLine();
+	//else 
+	if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
 		BuildLineGroups();
 	else if(SOURCE_MODE::MODE_LOCATION == _sourceMode)
 		PickStreamByBlock();
@@ -947,7 +972,10 @@ void StreamDeform::ProcessAllStream()
 	if(_deformMode == DEFORM_MODE::MODE_LINE)
 	{	
 		if(SOURCE_MODE::MODE_LENS == _sourceMode)
+		{
 			LineLensProcess();
+			LensTouchLine();
+		}
 		else if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
 			ProcessCut();
 		else if(SOURCE_MODE::MODE_LOCATION == _sourceMode)
@@ -969,7 +997,7 @@ std::vector<hull_type>* StreamDeform::GetHull()
 void StreamDeform::UpdateVertexLineIndex()
 {
 	int iv = 0;
-	vector<int> lengths = _primitiveLengths;// GetPrimitiveLengthsRender();
+	thrust::host_vector<int> lengths = _primitiveLengths;// GetPrimitiveLengthsRender();
 	for(int i = 0; i < lengths.size(); i++ )
 	{
 		iv = _primitiveOffsets[i];
@@ -1001,7 +1029,7 @@ void StreamDeform::UpdateVertexLineIndex()
 void StreamDeform::UpdateVertexLineIndexForCut()
 {
 	int iv = 0;
-	vector<int> lengths = _primitiveLengths;// GetPrimitiveLengthsRender();
+	thrust::host_vector<int> lengths = _primitiveLengths;// GetPrimitiveLengthsRender();
 	for(int i = 0; i < lengths.size(); i++ )
 	{
 		iv = _primitiveOffsets[i];
@@ -1241,7 +1269,7 @@ void StreamDeform::ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices,
 		streamGroups.push_back(it->lineIdx);
 }
 
-vector<int> StreamDeform::GetPrimitiveLengths()
+thrust::host_vector<int> StreamDeform::GetPrimitiveLengths()
 {
 	return _primitiveLengths;
 }

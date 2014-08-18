@@ -309,7 +309,7 @@ void _MouseFunc(int button, int state, int x, int y)
 				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::MOVE_LENS);
 				SetDisableTransformation(true);
 			}
-			else if(1 == _touchCoords.size() && cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
+			else if(cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
 			{
 				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_EDGE);
 				SetDisableTransformation(true);
@@ -378,6 +378,26 @@ void _TimerFunc(int value)
 
 void _MultiMotionFunc(int id, int x, int y, GESTURE g, map<int, vector<VECTOR2>> touchCoords)
 {
+	vector<VECTOR2> fingerPos;
+	for (map<int, vector<VECTOR2>>::iterator it=touchCoords.begin(); it!=touchCoords.end(); ++it)
+	{
+		if(0 == it->second.size() )	//because it can be e
+			return;
+		fingerPos.push_back(it->second.back());
+	}
+
+	if(2 == touchCoords.size())
+	{
+		VECTOR2 finger1 = fingerPos[0];//touchCoords.begin()->second.back();
+		VECTOR2 finger2 = fingerPos[1];//touchCoords.back().second.back();
+		if(cLineRenderer.getDeformLine()->OnEllipseTwoEndPoints(finger1[0], finger1[1], finger2[0], finger2[1]))
+		{
+			SetDisableTransformation(true);
+			cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_TWO_ENDS);
+			cLineRenderer.getDeformLine()->MoveLensTwoEndPtOnScreen(finger1[0], finger1[1], finger2[0], finger2[1]);
+		}
+	}
+
 	_touchCoords = touchCoords;
 //	cout<<"id:\t"<<id<<endl;
 //	_touchCoords.insert(id, );
@@ -396,14 +416,13 @@ void _MultiMotionFunc(int id, int x, int y, GESTURE g, map<int, vector<VECTOR2>>
 	}
 
 
-	
-	if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::DRAG_LENS_TWO_ENDS)
-	{
-		VECTOR2 finger1 = touchCoords.begin()->second.back();
-		VECTOR2 finger2 = touchCoords.end()->second.back();
-		//if(cLineRenderer.getDeformLine()->OnEllipseTwoEndPoints(finger1[0], finger1[1], finger2[0], finger2[1]))
-		cLineRenderer.getDeformLine()->MoveLensTwoEndPtOnScreen(finger1[0], finger1[1], finger2[0], finger2[1]);
-	}
+	//
+	//if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::DRAG_LENS_TWO_ENDS)
+	//{
+	//	VECTOR2 finger1 = touchCoords.begin()->second.back();
+	//	VECTOR2 finger2 = touchCoords.end()->second.back();
+	//	//if(cLineRenderer.getDeformLine()->OnEllipseTwoEndPoints(finger1[0], finger1[1], finger2[0], finger2[1]))
+	//}
 
 
 	glutPostRedisplay();
@@ -437,13 +456,7 @@ void _MultiEntryFunc(int id, int mode, map<int, vector<VECTOR2>> touchCoords)
 {
 	_touchCoords = touchCoords;
 	cout<<"touchCoords.size():"<<touchCoords.size()<<endl;
-	if(2 == touchCoords.size())
-	{
-		VECTOR2 finger1 = touchCoords.begin()->second.back();
-		VECTOR2 finger2 = touchCoords.end()->second.back();
-		if(cLineRenderer.getDeformLine()->OnEllipseTwoEndPoints(finger1[0], finger1[1], finger2[0], finger2[1]))
-			cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_TWO_ENDS);
-	}
+
 	//if(2 == touchCoords.size() )
 	//	cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::);
 	//if(mode == GLUT_ENTERED)
