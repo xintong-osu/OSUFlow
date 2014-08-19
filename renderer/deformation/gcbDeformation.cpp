@@ -323,6 +323,7 @@ void _MouseFunc(int button, int state, int x, int y)
 			cLineRenderer.SetDeformOn(true);
 			SetDisableTransformation(false);
 			cLineRenderer.getDeformLine()->UpdateLensScreen();
+			//cLineRenderer.getDeformLine()->RestoreStreamConnectivity();
 			//if(cLineRenderer.getDeformLine()->GetDeformMode() == DEFORM_MODE::MODE_LINE)
 			cLineRenderer.getDeformLine()->ProcessAllStream();
 			//else

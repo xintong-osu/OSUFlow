@@ -68,6 +68,8 @@ void SetVertexCoords(float* data, int n);
 
 void ComputeCutPoints();
 
+void ResetVertexIsFocus();
+
 //void SetHull(float* data, int nv, float center_x, float center_y);
 void SetHull(std::vector<hull_type> *hullSet);
 
@@ -89,7 +91,7 @@ void SetDeformOnPara(bool *deformOn);
 
 void launch_kernel(clock_t t0);
 
-void LensTouchLine();
+void UpdateVertexIsFocusByLens();
 
 void SetMode(DEFORM_MODE *deformMode, SOURCE_MODE *sourceMode);
 
@@ -97,7 +99,7 @@ std::vector<VECTOR2> GetPosScreenOrig();
 
 void AssignLineIndexFromDevice(int *data);
 
-void UpdateVertexLineIndexGPU();
+void UpdateLineIndexWithPickedLine();
 
 //void SetStreamDeform(void* sd);
 

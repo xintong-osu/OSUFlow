@@ -48,18 +48,26 @@ std::vector<ellipse>* _h_vec_ellipseSet;
 //streamline
 int _nv;
 __device__ __constant__ int NV;
+
+//these two device_ptr are the OpenGL pointer
 thrust::device_ptr<float3> _d_ptr_tangent;
+thrust::device_ptr<float4> _d_ptr_posClip;
+
 thrust::device_vector<int> d_vec_streamlineLengths;
 thrust::device_vector<int> d_vec_streamlineOffsets;
 thrust::device_vector<int> d_vec_streamlineLengthsOrig;
 thrust::device_vector<int> d_vec_streamlineOffsetsOrig;
-thrust::device_ptr<float4> _d_ptr_posClip;
+
 thrust::device_vector<float4> _d_vec_pos;
-thrust::device_vector<float2> d_vec_posScreen;
 thrust::device_vector<float4> _d_vec_prePos;
 thrust::device_vector<float4> _d_vec_origPos;
+
+thrust::device_vector<float2> d_vec_posScreen;
+
 thrust::device_vector<int> _d_vec_lineIndex;
 thrust::device_vector<int> _d_vec_lineIndexOrig;
+thrust::device_vector<bool> _d_vec_vertexIsFocus;
+
 thrust::counting_iterator<int> counting_zero(0);
 std::vector<int> *_pickedLineSet;
 
@@ -362,7 +370,7 @@ __device__ inline float G(float x, float r)
 
 //kernels
 __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
-	float4* prevPos, float4* origPos, int *lineIndex, int _nv, 
+	float4* prevPos, float4* origPos, int *lineIndex, bool *vertexIsFocus, int _nv, 
 	ellipse* ellipseSet, hull_type* hullSet, int nEllipse, 
 	DEFORM_MODE deformMode, float pa)//, unsigned int nv)
 {
@@ -411,7 +419,7 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 		float r = 0.5;
 		radiusOuterAll[ie] = radius / r;// (radius + transWidth) ;
 		
-		if(dist2Center <= radiusOuterAll[ie] && lineIndex[i] >= 0)
+		if(dist2Center <= radiusOuterAll[ie] && (false == vertexIsFocus[i]))
 		{
 			
 			//force from neighboring vertices
@@ -503,13 +511,11 @@ struct functor_Clip2Screen
 	}
 };
 
-struct functor_AssignLineIndexByLens
+struct functor_UpdateVertexIsFocusByLens
 {
-	int* lineIndex;
+	bool* vertexIsFocus;
 	float4* posClip;
 	float2* posScreen;
-	//float2 lens_center_screen;
-	//float lens_radius_screen;
 	ellipse e;
 	float lens_z_clip;
 	template <typename T>
@@ -528,43 +534,28 @@ struct functor_AssignLineIndexByLens
 			if(length(dirFromCenter) < radius && p_depth < lens_z_clip)
 				passed = true;
 		}
-		if(passed)
-		{
-			for(int i = 0; i < len; i++)
-				lineIndex[offset + i] = thrust::get<2>(t);
-		}
-		else
-		{
-			for(int i = 0; i < len; i++)
-				lineIndex[offset + i] = - thrust::get<2>(t);
-		}
+		for(int i = 0; i < len; i++)
+			vertexIsFocus[offset + i] = !passed;
 	}
 
-	functor_AssignLineIndexByLens(int* _lineIndex, float4* _posClip, float2* _posScreen, 
+	functor_UpdateVertexIsFocusByLens(bool* _vertexIsFocus, float4* _posClip, float2* _posScreen, 
 		ellipse _e, float _lens_z_clip)
 	{
-		lineIndex = _lineIndex;
+		vertexIsFocus = _vertexIsFocus;
 		posClip = _posClip;
 		posScreen = _posScreen;
-		/*lens_center_screen = _lens_center_screen;
-		lens_radius_screen = _lens_radius_screen;*/
 		e = _e;
 		lens_z_clip = _lens_z_clip;
 	}
 };
 
-void LensTouchLine()
+void ResetVertexIsFocus()
 {
-	
-	//cout<<"tModelViewMatrixf:"<<endl;
-	//PrintMatrix(_h_modelview );
-	//cout<<"tProjectionMatrixf:"<<endl;
-	//PrintMatrix(_h_projection );
+	_d_vec_vertexIsFocus.assign(_nv, false);
+}
 
-	//float modelview[16], projection[16];
-	//_deformLine->GetModelViewMatrix(modelview);
-	//_deformLine->GetModelViewMatrix(projection);
-
+void UpdateVertexIsFocusByLens()
+{
 	float4 lensCenterClip = Object2Clip(*_lensCenterObject);
 	float lensDepth_clip = lensCenterClip.z;
 
@@ -574,8 +565,6 @@ void LensTouchLine()
 	thrust::transform(d_vec_origPosClip.begin(), d_vec_origPosClip.end(), d_vec_origPosScreen.begin(), functor_Clip2Screen());
 
 	////http://stackoverflow.com/questions/3717226/radius-of-projected-sphere
-	
-	//cout<<"lensDepth_clip:"<<lensDepth_clip<<endl;
 	//use the original position to solve the vibrating problem, because when deformed streamline changes depth
 	if(_h_vec_ellipseSet->size() > 0)
 	{
@@ -583,13 +572,10 @@ void LensTouchLine()
 		thrust::for_each(
 			thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin(), counting_zero)),
 			thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + d_vec_streamlineOffsets.size())),
-			functor_AssignLineIndexByLens(
-				thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
+			functor_UpdateVertexIsFocusByLens(
+				thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data()),
 				thrust::raw_pointer_cast(d_vec_origPosClip.data()), 
 				thrust::raw_pointer_cast(d_vec_origPosScreen.data()),
-				//lens_center_screen, lens_radius_screen, lens_center_clip.z));
-				/*make_float2(ell.x, ell.y),
-				ell.a, */
 				ell,
 				lensDepth_clip));
 	}
@@ -639,6 +625,7 @@ void launch_kernel(clock_t t0)//, unsigned int mesh_width, unsigned int mesh_hei
    		kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
 					thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
 					thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
+					thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data()),
 					_nv,
 					thrust::raw_pointer_cast(d_vec_ellipseSet.data()), 
 					thrust::raw_pointer_cast(d_vec_hullSet.data()), 
@@ -908,7 +895,7 @@ struct functor_UpdateLineIndexWithPickedLine
 {
 	int* offsets;
 	int* lengths;
-	int* lineIndex;
+	bool* vertexIsFocus;
 
 //	template <typename T>
 	__device__ void operator() (int picked)
@@ -917,21 +904,21 @@ struct functor_UpdateLineIndexWithPickedLine
 		int length = lengths[picked];
 		for(int i = 0; i < length; i++)	{
 			int idx = offset + i;
-			lineIndex[idx] = - lineIndex[idx];
+			vertexIsFocus[idx] = true;
 		}
 	}
 
-	functor_UpdateLineIndexWithPickedLine(int* _offsets, int* _lengths, int* _lineIndex)
+	functor_UpdateLineIndexWithPickedLine(int* _offsets, int* _lengths, bool* _vertexIsFocus)
 	{
 		offsets = _offsets;
 		lengths = _lengths;
-		lineIndex = _lineIndex;
+		vertexIsFocus = _vertexIsFocus;
 	}
 };
 
 void ComputeCutPoints()
 {
-	std::vector<bool>  isCutPoint;
+	//std::vector<bool>  isCutPoint;
 	//this offset use the index to mark the first element of a streamline, 
 	//and use -1 to mark the others
 	thrust::device_vector<int> d_vec_filledOffset;	
@@ -992,7 +979,7 @@ void ComputeCutPoints()
 		functor_GenLineIndex(thrust::raw_pointer_cast(_d_vec_lineIndex.data())));
 }
 
-void UpdateVertexLineIndexGPU()
+void UpdateLineIndexWithPickedLine()
 {
 	//thrust::for_each(
 	//	thrust::make_zip_iterator(thrust::make_tuple(
@@ -1008,11 +995,12 @@ void UpdateVertexLineIndexGPU()
 	//_d_vec_lineIndex = _d_vec_lineIndexOrig;
 	thrust::device_vector<int> picked_lineSet;// = *_pickedLineSet;
 	picked_lineSet.assign(_pickedLineSet->begin(), _pickedLineSet->end());
+
 	thrust::for_each(picked_lineSet.begin(), picked_lineSet.end(),
 		functor_UpdateLineIndexWithPickedLine(
 			thrust::raw_pointer_cast(d_vec_streamlineOffsetsOrig.data()),
 			thrust::raw_pointer_cast(d_vec_streamlineLengthsOrig.data()),
-			thrust::raw_pointer_cast(_d_vec_lineIndex.data()))
+			thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data()))
 		);
 	//for(int i = 0; i < _d_vec_lineIndex.size(); i+= 100)	{
 	//	cout<<_d_vec_lineIndex[i] << ", ";
@@ -1032,6 +1020,8 @@ void SetVertexCoords(float* data, int n)
 	d_vec_posScreen.resize(_nv);
 	_d_vec_origPos.resize(_nv);
 	_d_vec_lineIndexOrig.resize(_nv);
+	_d_vec_vertexIsFocus.resize(_nv);
+
 	//_d_vec_IsCutPoint.resize(_nv);
 	//_d_vec_IsCutPoint.assign(_nv, false);
 	

@@ -712,7 +712,8 @@ void StreamDeform::MoveLensTwoEndPtOnScreen(float x1, float y1, float x2, float 
 void StreamDeform::ChangeLensAngle(int m)
 {
 	_focusEllipseSet.front().angle += (m * 0.2);
-	LensTouchLine();
+	//ResetVertexIsFocus();
+	//LensTouchLine();
 }
 
 void StreamDeform::ChangeLensChangeStep(float m)
@@ -898,17 +899,6 @@ void StreamDeform::RunCuda()
 //#endif
 }
 
-void StreamDeform::LineLensProcess()
-{
-	UpdateVertexLineIndexGPU();
-	/*_isCutPoint = */ComputeCutPoints();
-	//cout<<"**here"<<endl;
-	GetPrimitive(_primitiveOffsets, _primitiveLengths);
-	//UpdateVertexLineIndexGPU();
-//	ComputeNewPrimitives();
-//	AssignLineIndexFromDevice(_vertexLineIndex);
-//	UpdateVertexLineIndexForCut();
-}
 
 void StreamDeform::GetModelViewMatrix(float matrix[16])
 {
@@ -928,17 +918,34 @@ void StreamDeform::GetProjectionMatrix(float matrix[16])
 
 void StreamDeform::ProcessCut()
 {
-	if(_picked3DHulls.size() > 0)
-	{
-		GenHullEllipse();
-		UpdateVertexLineIndexGPU();
-		/*_isCutPoint = */ComputeCutPoints();           
-		GetPrimitive(_primitiveOffsets, _primitiveLengths);
-		//ComputeNewPrimitives();
-		//UpdateVertexLineIndex();
-		//UpdateVertexLineIndexGPU();
-	}
+	//if(_picked3DHulls.size() > 0)
+	//{
+	//	GenHullEllipse();
+	//	//UpdateVertexLineIndexGPU();
+	//	/*_isCutPoint = */ComputeCutPoints();           
+	//	GetPrimitive(_primitiveOffsets, _primitiveLengths);
+	//	//ComputeNewPrimitives();
+	//	//UpdateVertexLineIndex();
+	//	//UpdateVertexLineIndexGPU();
+	//}
+		/*_isCutPoint = */ComputeCutPoints();
+//	UpdateLineIndexWithPickedLine();
+	//cout<<"**here"<<endl;
+	GetPrimitive(_primitiveOffsets, _primitiveLengths);
 }
+
+
+//void StreamDeform::LineLensProcess()
+//{
+//	/*_isCutPoint = */ComputeCutPoints();
+//	UpdateLineIndexWithPickedLine();
+//	//cout<<"**here"<<endl;
+//	GetPrimitive(_primitiveOffsets, _primitiveLengths);
+//	//UpdateVertexLineIndexGPU();
+////	ComputeNewPrimitives();
+////	AssignLineIndexFromDevice(_vertexLineIndex);
+////	UpdateVertexLineIndexForCut();
+//}
 
 void StreamDeform::resetOrigPos()
 {
@@ -954,13 +961,19 @@ void StreamDeform::ProcessAllStream()
 #if (TEST_PERFORMANCE == 1)
 	clock_t t0 = clock();
 #endif
-	//if(SOURCE_MODE::MODE_LENS == _sourceMode)
-	//	LensTouchLine();
-	//else 
-	if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
+	ResetVertexIsFocus();
+	if(SOURCE_MODE::MODE_LENS == _sourceMode)
+		UpdateVertexIsFocusByLens();
+	else if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
+	{
 		BuildLineGroups();
+		UpdateLineIndexWithPickedLine();
+	}
 	else if(SOURCE_MODE::MODE_LOCATION == _sourceMode)
+	{
 		PickStreamByBlock();
+		UpdateLineIndexWithPickedLine();
+	}
 
 #if (TEST_PERFORMANCE == 1)
 	PrintElapsedTime(t0, "Process streamlines");
@@ -971,15 +984,17 @@ void StreamDeform::ProcessAllStream()
 #endif
 	if(_deformMode == DEFORM_MODE::MODE_LINE)
 	{	
-		if(SOURCE_MODE::MODE_LENS == _sourceMode)
+		//if(SOURCE_MODE::MODE_LENS == _sourceMode)
+		//	LineLensProcess();
+		//else 
+		if(SOURCE_MODE::MODE_BUNDLE == _sourceMode || SOURCE_MODE::MODE_LOCATION == _sourceMode)
 		{
-			LineLensProcess();
-			LensTouchLine();
+			if(_picked3DHulls.size() > 0)
+				GenHullEllipse();
 		}
-		else if(SOURCE_MODE::MODE_BUNDLE == _sourceMode)
-			ProcessCut();
-		else if(SOURCE_MODE::MODE_LOCATION == _sourceMode)
-			LineLensProcess();
+		ProcessCut();
+		//else if(SOURCE_MODE::MODE_LOCATION == _sourceMode)
+		//	LineLensProcess();
 	}
 #if (TEST_PERFORMANCE == 4)
 	PrintElapsedTime(t0, "cut");
@@ -1390,13 +1405,6 @@ void StreamDeform::ComputeNewPrimitives()
 	//_pickedLineSet = _pickedLineSetOrig;
 }
 
-void StreamDeform::BuildLineGroups()
-{
-	vector<vector<int>> streamGroups;
-	ClusterStreamByBoundingBoxOnScreen(_pickedLineSet, streamGroups);
-	_picked3DHulls = Groups2Hull(streamGroups);
-	
-}
 
 void StreamDeform::RestoreAllStream()
 {
@@ -1544,7 +1552,15 @@ void StreamDeform::PickStreamByBlock()
 	//ClusterStreamByBoundingBoxOnScreen(_pickedLineSet, streamGroups);
 	//cout<<"streamGroups.size():"<<streamGroups.size()<<endl;
 	_picked3DHulls = Groups2Hull(streamGroups);
-	UpdateVertexLineIndex();
+	//UpdateVertexLineIndex();
+}
+
+void StreamDeform::BuildLineGroups()
+{
+	vector<vector<int>> streamGroups;
+	ClusterStreamByBoundingBoxOnScreen(_pickedLineSet, streamGroups);
+	//UpdateVertexIsFocus();
+	_picked3DHulls = Groups2Hull(streamGroups);
 }
 
 void StreamDeform::MovePickBlock(DIRECTION dir)
