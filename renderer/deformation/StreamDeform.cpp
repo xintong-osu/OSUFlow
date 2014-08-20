@@ -404,17 +404,17 @@ void StreamDeform::Init()
 {
 	SetVertexCoords((float*)(GetPrimitiveBases()->at(0)), _vertexCount );
 	SetPrimitive(_primitiveLengths, _primitiveOffsets);
-	_primitiveOffsetsOrig = _primitiveOffsets;
+	//_primitiveOffsetsOrig = _primitiveOffsets;
 	
 	if(_vertexLineIndex != NULL)
 		delete [] _vertexLineIndex;
 	_vertexLineIndex = new int[_vertexCount];
 
 	//////set color/////////
-	for(int i = 0; i < _primitiveOffsetsOrig.size(); i++)
+	for(int i = 0; i < _primitiveOffsets.size(); i++)
 	{
-		int offset = _primitiveOffsetsOrig[i];
-		int length = _primitiveLengthsOrig[i];
+		int offset = _primitiveOffsets[i];
+		int length = _primitiveLengths[i];
 		for(int j = 0; j < length; j++)
 		{
 			VECTOR4 c = GetBundleColor(_streamBundleIndex[i]);// GetColor((float)j / (length - 1));
@@ -596,7 +596,10 @@ void StreamDeform::ChangeLensDepth(int m)
 		lens_center_clip[2] -= _lensChangeStep;
 	_lensCenterObject = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
 	//SetEllipse(&_focusEllipseSet);
+	//RestoreStreamConnectivity();
+	//GetPrimitive(_primitiveOffsets, _primitiveLengths);
 	ProcessAllStream();
+	//GetPrimitive(_primitiveOffsets, _primitiveLengths);
 }
 
 void StreamDeform::MoveLensCenterOnScreen(float dx, float dy)
@@ -665,15 +668,18 @@ void StreamDeform::MoveLensTwoEndPtOnScreen(float x1, float y1, float x2, float 
 	VECTOR2 dirFromCenter = VECTOR2(x1, y1) - lens_center_screen;
 	float angle = atan2(dirFromCenter[1], dirFromCenter[0]);
 	float length = dirFromCenter.GetMag();// Screen2ObjectLength(dirFromCenter.GetMag(), _lensDepth_clip);
+	float ratio = _focusEllipseSet.front().a / _focusEllipseSet.front().b;
 
 	if(_onLongAxisEndPt)
 	{
 		//_lensEllipseRatio = dirFromCenter.GetMag() / _focusEllipseSet[0].b;
 		_focusEllipseSet.front().a = length;
+		_focusEllipseSet.front().b = _focusEllipseSet.front().a / ratio;
 	}
 	else
 	{
 		_focusEllipseSet.front().b = length;
+		_focusEllipseSet.front().a = _focusEllipseSet.front().b * ratio;
 		angle += (M_PI * 0.5);
 	}
 	if(angle < 0)
@@ -949,7 +955,7 @@ void StreamDeform::ProcessCut()
 
 void StreamDeform::resetOrigPos()
 {
-	resetPos();
+	RestorePos();
 
 	//GenSkeletonByLines(streamGroups.front());
 
@@ -1358,52 +1364,52 @@ void StreamDeform::GetPickCube(VECTOR3 &min, VECTOR3 &max)
 	min = _pickBlockStart;
 	max = _pickBlockStart + _pickBlockSize;
 }
-void StreamDeform::ComputeNewPrimitives()
-{
-	//cout<<"_primitiveLengths.size()1:"<<_primitiveLengths.size()<<endl;
-	_primitiveLengths.clear();
-	_primitiveOffsets.clear();
-	_pickedLineSet.clear();
-	for(int i = 0; i < _primitiveLengthsOrig.size(); i++)
-	{
-		int length = _primitiveLengthsOrig[i];
-		int offset = _primitiveOffsetsOrig[i];
-		int offsetNew = offset;
-		bool isFocus = GetLinePickedOrig(i);
-
-		int lengthNew = 0;
-		//const int lengthThreshold = 4;
-		for(int j = 0; j < (length - 1); j++)
-		{
-			int idx = offset + j;
-			if(		_isCutPoint[idx] )
-			{
-				//cout<<"_isCutPoint!  j="<<j<<endl;
-				lengthNew = idx - offsetNew + 1;
-				//if(lengthNew > lengthThreshold)
-				{
-					_primitiveOffsets.push_back(offsetNew);
-					_primitiveLengths.push_back(lengthNew);
-					//cout<<"offsetNew:"<<offsetNew<<endl;
-					//cout<<"lengthNew:"<<lengthNew<<endl;
-					if(isFocus)
-						_pickedLineSet.push_back(_primitiveOffsets.size() - 1);
-				}
-				offsetNew = idx + 1;
-			}
-		}
-		lengthNew = length - (offsetNew - offset);
-		_primitiveOffsets.push_back(offsetNew);
-		_primitiveLengths.push_back(lengthNew);
-
-		if(isFocus)
-			_pickedLineSet.push_back(_primitiveOffsets.size() - 1);
-	}
-	//cout<<"_primitiveLengths.size()2:"<<_primitiveLengths.size()<<endl;
-	//_primitiveLengths = _primitiveLengthsOrig;
-	//_primitiveOffsets = _primitiveOffsetsOrig;
-	//_pickedLineSet = _pickedLineSetOrig;
-}
+//void StreamDeform::ComputeNewPrimitives()
+//{
+//	//cout<<"_primitiveLengths.size()1:"<<_primitiveLengths.size()<<endl;
+//	_primitiveLengths.clear();
+//	_primitiveOffsets.clear();
+//	_pickedLineSet.clear();
+//	for(int i = 0; i < _primitiveLengthsOrig.size(); i++)
+//	{
+//		int length = _primitiveLengthsOrig[i];
+//		int offset = _primitiveOffsetsOrig[i];
+//		int offsetNew = offset;
+//		bool isFocus = GetLinePickedOrig(i);
+//
+//		int lengthNew = 0;
+//		//const int lengthThreshold = 4;
+//		for(int j = 0; j < (length - 1); j++)
+//		{
+//			int idx = offset + j;
+//			if(		_isCutPoint[idx] )
+//			{
+//				//cout<<"_isCutPoint!  j="<<j<<endl;
+//				lengthNew = idx - offsetNew + 1;
+//				//if(lengthNew > lengthThreshold)
+//				{
+//					_primitiveOffsets.push_back(offsetNew);
+//					_primitiveLengths.push_back(lengthNew);
+//					//cout<<"offsetNew:"<<offsetNew<<endl;
+//					//cout<<"lengthNew:"<<lengthNew<<endl;
+//					if(isFocus)
+//						_pickedLineSet.push_back(_primitiveOffsets.size() - 1);
+//				}
+//				offsetNew = idx + 1;
+//			}
+//		}
+//		lengthNew = length - (offsetNew - offset);
+//		_primitiveOffsets.push_back(offsetNew);
+//		_primitiveLengths.push_back(lengthNew);
+//
+//		if(isFocus)
+//			_pickedLineSet.push_back(_primitiveOffsets.size() - 1);
+//	}
+//	//cout<<"_primitiveLengths.size()2:"<<_primitiveLengths.size()<<endl;
+//	//_primitiveLengths = _primitiveLengthsOrig;
+//	//_primitiveOffsets = _primitiveOffsetsOrig;
+//	//_pickedLineSet = _pickedLineSetOrig;
+//}
 
 
 void StreamDeform::RestoreAllStream()
@@ -1414,10 +1420,12 @@ void StreamDeform::RestoreAllStream()
 
 void StreamDeform::RestoreStreamConnectivity()
 {
-	_primitiveLengths = _primitiveLengthsOrig;
-	_primitiveOffsets = _primitiveOffsetsOrig;
-	_pickedLineSet = _pickedLineSetOrig;
-	UpdateVertexLineIndex();
+	//_primitiveLengths = _primitiveLengthsOrig;
+	//_primitiveOffsets = _primitiveOffsetsOrig;
+	//GetPrimitive(_primitiveOffsets, _primitiveLengths);
+	//_pickedLineSet = _pickedLineSetOrig;
+	//UpdateVertexLineIndex();
+	RestoreConnectivity();
 }
 
 void StreamDeform::loadBundle(int *clusterid , int nClusters)
@@ -1441,7 +1449,7 @@ void StreamDeform::setData(float *pfCoords, int size, vector<int> pviGlPrimitive
 		_primitiveBases.push_back((VECTOR4*)(&pfCoords[pviGlPrimitiveBases.at(i) * 4]));
 	}
 	_primitiveLengths = pviGlPrimitiveLengths;
-	_primitiveLengthsOrig = _primitiveLengths;
+	//_primitiveLengthsOrig = _primitiveLengths;
 
 	_vertexCount = size;
 

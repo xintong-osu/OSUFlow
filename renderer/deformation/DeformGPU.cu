@@ -462,28 +462,40 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 		pos_clip[i].y = v.y;//ELLIPSE_CENTER.y / WIN_HEIGHT * 2.0 - 1.0;//v.y;
 		pos[i] = Clip2Object(pos_clip[i]);
 	}
-	else	//Recover the 3D Position
+	//else	//Recover the 3D Position
+	bool case1 = (DEFORM_MODE::MODE_LINE == deformMode && !inAnyGroupLine(ellipseSet, radiusOuterAll, nEllipse, origPos[i]));
+	bool case2 = (DEFORM_MODE::MODE_LINE != deformMode && !inAnyGroup(ellipseSet, radiusOuterAll, nEllipse, origPos[i]));
+	bool case3 = (true == vertexIsFocus[i]);
+	if(	case1 || case2 || case3)
 	{
 		//make sure it would not recover into the deformation region
 		float4 temp = Recover3DPosition(pos[i], origPos[i], moveSpeed);
-		if(DEFORM_MODE::MODE_LINE == deformMode)
+		/*if(DEFORM_MODE::MODE_LINE == deformMode)
 		{
-			if(lineIndex[i] < 0 || !inAnyGroupLine(ellipseSet, radiusOuterAll, nEllipse, temp) )
+			if(true == vertexIsFocus[i] || !inAnyGroupLine(ellipseSet, radiusOuterAll, nEllipse, temp) )
 				pos[i] = temp;
 		}
 		else
 		{
-			if(lineIndex[i] < 0 || !inAnyGroup(ellipseSet, radiusOuterAll, nEllipse, temp) )
+			if(true == vertexIsFocus[i] || !inAnyGroup(ellipseSet, radiusOuterAll, nEllipse, temp) )
 				pos[i] = temp;
-		}
+		}*/
 		
+		pos[i] = temp;
 		pos_clip[i] = Object2Clip(pos[i]);
 	}
 }
 
-void resetPos()
+void RestorePos()
 {
 	thrust::copy(_d_vec_origPos.begin(), _d_vec_origPos.end(), _d_vec_pos.begin());
+}
+
+void RestoreConnectivity()
+{
+	d_vec_streamlineLengths = d_vec_streamlineLengthsOrig;
+	d_vec_streamlineOffsets = d_vec_streamlineOffsetsOrig;
+
 }
 
 struct functor_Object2Clip
@@ -828,16 +840,30 @@ struct functor_ComputeCutPointsWithLine
 struct functor_AssignFilledOffsets
 {
 	int *filledOffset;
+	bool *vertexIsFocus;
 
-	__device__ void operator() (int offset)
+	template <typename T>
+	__device__ void operator() (T t)
 	{
 	//	if(0 != offset)
-		filledOffset[offset] = offset;
+		int offset = thrust::get<0>(t);
+		int length = thrust::get<1>(t);
+		//bool hasOneFocus = false;
+		/*for(int i = offset; i < (offset + length); i++)	{
+			if(vertexIsFocus[i])
+			{*/
+				//hasOneFocus = true;
+			//	break;
+		/*	}
+		}*/
+		//if(!vertexIsFocus[offset])
+			filledOffset[offset] = offset;
 	}
 
-	functor_AssignFilledOffsets(int *_filledOffset)
+	functor_AssignFilledOffsets(int *_filledOffset, bool *_vertexIsFocus)
 	{
 		filledOffset = _filledOffset;
+		vertexIsFocus = _vertexIsFocus;
 	}
 };
 
@@ -916,6 +942,14 @@ struct functor_UpdateLineIndexWithPickedLine
 	}
 };
 
+void UpdateLineIndex()
+{
+	thrust::for_each(
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin(), counting_zero)),
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + d_vec_streamlineOffsets.size())),
+		functor_GenLineIndex(thrust::raw_pointer_cast(_d_vec_lineIndex.data())));
+}
+
 void ComputeCutPoints()
 {
 	//std::vector<bool>  isCutPoint;
@@ -923,10 +957,15 @@ void ComputeCutPoints()
 	//and use -1 to mark the others
 	thrust::device_vector<int> d_vec_filledOffset;	
 	d_vec_filledOffset.assign(_nv, -1);
-	thrust::for_each(d_vec_streamlineOffsets.begin(), d_vec_streamlineOffsets.end(),
+	thrust::for_each(
+		//d_vec_streamlineOffsets.begin(), d_vec_streamlineOffsets.end(),
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin())),
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end())),
 	functor_AssignFilledOffsets(
-		thrust::raw_pointer_cast(d_vec_filledOffset.data())
+		thrust::raw_pointer_cast(d_vec_filledOffset.data()),
+		thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data())
 		));
+
 	//cout<<"**1"<<endl;
 	//cout<<"cnt1:"<<d_vec_streamlineOffsets.size()<<endl;
 	thrust::device_vector<float2> d_vec_posScreen(_nv);
@@ -973,10 +1012,7 @@ void ComputeCutPoints()
 	//cout<<"**8"<<endl;
 //	thrust::host_vector<bool> h_vec_IsCutPoint = d_vec_IsCutPoint;
 //	return h_vec_IsCutPoint;
-	thrust::for_each(
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin(), counting_zero)),
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + d_vec_streamlineOffsets.size())),
-		functor_GenLineIndex(thrust::raw_pointer_cast(_d_vec_lineIndex.data())));
+	UpdateLineIndex();
 }
 
 void UpdateLineIndexWithPickedLine()
@@ -1020,6 +1056,7 @@ void SetVertexCoords(float* data, int n)
 	d_vec_posScreen.resize(_nv);
 	_d_vec_origPos.resize(_nv);
 	_d_vec_lineIndexOrig.resize(_nv);
+	_d_vec_lineIndex.resize(_nv);
 	_d_vec_vertexIsFocus.resize(_nv);
 
 	//_d_vec_IsCutPoint.resize(_nv);
@@ -1089,10 +1126,12 @@ void SetPrimitive(thrust::host_vector<int> &length, thrust::host_vector<int> &of
 	d_vec_streamlineLengthsOrig = d_vec_streamlineLengths;
 	d_vec_streamlineOffsetsOrig = d_vec_streamlineOffsets;
 	
-	thrust::for_each(
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin(), counting_zero)),
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + d_vec_streamlineOffsets.size())),
-		functor_GenLineIndex(thrust::raw_pointer_cast(_d_vec_lineIndexOrig.data())));
+	//thrust::for_each(
+	//	thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin(), counting_zero)),
+	//	thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + d_vec_streamlineOffsets.size())),
+	//	functor_GenLineIndex(thrust::raw_pointer_cast(_d_vec_lineIndexOrig.data())));
+	UpdateLineIndex();
+	_d_vec_lineIndexOrig = _d_vec_lineIndex;
 
 	check_cuda_errors(__FILE__, __LINE__);
 }

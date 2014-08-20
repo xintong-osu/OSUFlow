@@ -200,8 +200,8 @@ class StreamDeform
 	vector<VECTOR4*> _primitiveBases;
 	thrust::host_vector<int> _primitiveLengths;
 	thrust::host_vector<int> _primitiveOffsets;
-	thrust::host_vector<int> _primitiveLengthsOrig;
-	thrust::host_vector<int> _primitiveOffsetsOrig;
+//	thrust::host_vector<int> _primitiveLengthsOrig;
+	//thrust::host_vector<int> _primitiveOffsetsOrig;
 	vector<VECTOR4> _primitiveColors;
 
     float4 *_d_raw_clip;
@@ -375,7 +375,7 @@ class StreamDeform
 	//float Screen2ObjectLength(float length_screen, float depth_screen);
 
 	void GenSkeletonByLines(vector<int> lineIndex);
-	void ComputeNewPrimitives();
+	//void ComputeNewPrimitives();
 	void UpdateVertexLineIndexForCut();
 
 	//void CutStreamByCurve();

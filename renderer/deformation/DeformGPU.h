@@ -104,7 +104,11 @@ void UpdateLineIndexWithPickedLine();
 //void SetStreamDeform(void* sd);
 
 //reset the vertex position to its original position
-void resetPos();
+void RestorePos();
+
+void RestoreConnectivity();
+
+void UpdateLineIndex();
 
 std::vector<int> PickStreamByBlockCUDA(float min[3], float max[3]);
 

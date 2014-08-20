@@ -627,7 +627,7 @@ _MultiMotionCB(int id, int x, int y)
 			}
 		}
 	}
-	cout<<"_touchCoordsGCB.size():"<<_touchCoordsGCB.size()<<endl;
+	//cout<<"_touchCoordsGCB.size():"<<_touchCoordsGCB.size()<<endl;
 	if(_MultiMotionFunc)
 		_MultiMotionFunc(id, x, y, _currentGesture, _touchCoordsGCB);
 }
