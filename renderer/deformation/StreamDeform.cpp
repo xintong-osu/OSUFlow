@@ -403,7 +403,7 @@ void StreamDeform::bundling(int n)
 void StreamDeform::Init()
 {
 	SetVertexCoords((float*)(GetPrimitiveBases()->at(0)), _vertexCount );
-	SetPrimitive(_primitiveLengths, _primitiveOffsets);
+	SetConnectivity(_primitiveLengths, _primitiveOffsets);
 	//_primitiveOffsetsOrig = _primitiveOffsets;
 	
 	if(_vertexLineIndex != NULL)
@@ -597,9 +597,9 @@ void StreamDeform::ChangeLensDepth(int m)
 	_lensCenterObject = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
 	//SetEllipse(&_focusEllipseSet);
 	//RestoreStreamConnectivity();
-	//GetPrimitive(_primitiveOffsets, _primitiveLengths);
+	//GetConnectivity(_primitiveOffsets, _primitiveLengths);
 	ProcessAllStream();
-	//GetPrimitive(_primitiveOffsets, _primitiveLengths);
+	//GetConnectivity(_primitiveOffsets, _primitiveLengths);
 }
 
 void StreamDeform::MoveLensCenterOnScreen(float dx, float dy)
@@ -929,7 +929,7 @@ void StreamDeform::ProcessCut()
 	//	GenHullEllipse();
 	//	//UpdateVertexLineIndexGPU();
 	//	/*_isCutPoint = */ComputeCutPoints();           
-	//	GetPrimitive(_primitiveOffsets, _primitiveLengths);
+	//	GetConnectivity(_primitiveOffsets, _primitiveLengths);
 	//	//ComputeNewPrimitives();
 	//	//UpdateVertexLineIndex();
 	//	//UpdateVertexLineIndexGPU();
@@ -937,7 +937,7 @@ void StreamDeform::ProcessCut()
 		/*_isCutPoint = */ComputeCutPoints();
 //	UpdateLineIndexWithPickedLine();
 	//cout<<"**here"<<endl;
-	GetPrimitive(_primitiveOffsets, _primitiveLengths);
+	GetConnectivity(_primitiveOffsets, _primitiveLengths);
 }
 
 
@@ -946,7 +946,7 @@ void StreamDeform::ProcessCut()
 //	/*_isCutPoint = */ComputeCutPoints();
 //	UpdateLineIndexWithPickedLine();
 //	//cout<<"**here"<<endl;
-//	GetPrimitive(_primitiveOffsets, _primitiveLengths);
+//	GetConnectivity(_primitiveOffsets, _primitiveLengths);
 //	//UpdateVertexLineIndexGPU();
 ////	ComputeNewPrimitives();
 ////	AssignLineIndexFromDevice(_vertexLineIndex);
@@ -1416,13 +1416,14 @@ void StreamDeform::RestoreAllStream()
 {
 	resetOrigPos();
 	RestoreStreamConnectivity();
+	GetConnectivity(_primitiveOffsets, _primitiveLengths);
 }
 
 void StreamDeform::RestoreStreamConnectivity()
 {
 	//_primitiveLengths = _primitiveLengthsOrig;
 	//_primitiveOffsets = _primitiveOffsetsOrig;
-	//GetPrimitive(_primitiveOffsets, _primitiveLengths);
+	//GetConnectivity(_primitiveOffsets, _primitiveLengths);
 	//_pickedLineSet = _pickedLineSetOrig;
 	//UpdateVertexLineIndex();
 	RestoreConnectivity();

@@ -68,6 +68,10 @@ thrust::device_vector<int> _d_vec_lineIndex;
 thrust::device_vector<int> _d_vec_lineIndexOrig;
 thrust::device_vector<bool> _d_vec_vertexIsFocus;
 
+thrust::device_vector<int> _d_vec_cutPointsMarkOrig;	
+thrust::device_vector<int> _d_vec_cutPointsMark;	
+
+
 thrust::counting_iterator<int> counting_zero(0);
 std::vector<int> *_pickedLineSet;
 
@@ -270,17 +274,27 @@ __device__ inline bool inAnyGroup(ellipse* ellipseSet, float* radiusOuter, int c
 	return false;
 }
 
+__device__ inline bool inOneBlade(ellipse e, float radius, float2 p)
+{
+	float2 line[2];
+	line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+	line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+	float2 center = ProjectPoint2Line(p, line[0], line[1]);
+	if(length(center - p) < radius)
+		return true;
+}
+
 __device__ inline bool inAnyGroupLine(ellipse* ellipseSet, float* radiusOuter, int cnt, float4 p)
 {
 	for(int i = 0; i < cnt; i++)
 	{
 		ellipse e = ellipseSet[i];
-		float2 line[2];
-		line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
-		line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
-		float2 v_screen = Object2Screen(p);
-		float2 center = ProjectPoint2Line(v_screen, line[0], line[1]);
-		if(length(center - v_screen) < radiusOuter[i])
+		//float2 line[2];
+		//line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+		//line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+		//float2 v_screen = Object2Screen(p);
+		//float2 center = ProjectPoint2Line(v_screen, line[0], line[1]);
+		if(inOneBlade(e, radiusOuter[i], Object2Screen(p)))
 			return true;
 	}
 	return false;
@@ -495,7 +509,7 @@ void RestoreConnectivity()
 {
 	d_vec_streamlineLengths = d_vec_streamlineLengthsOrig;
 	d_vec_streamlineOffsets = d_vec_streamlineOffsetsOrig;
-
+	_d_vec_cutPointsMark = _d_vec_cutPointsMarkOrig;
 }
 
 struct functor_Object2Clip
@@ -582,8 +596,8 @@ void UpdateVertexIsFocusByLens()
 	{
 		ellipse ell = _h_vec_ellipseSet->front();
 		thrust::for_each(
-			thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin(), counting_zero)),
-			thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end(), counting_zero + d_vec_streamlineOffsets.size())),
+			thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsetsOrig.begin(), d_vec_streamlineLengthsOrig.begin(), counting_zero)),
+			thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsetsOrig.end(), d_vec_streamlineLengthsOrig.end(), counting_zero + d_vec_streamlineOffsets.size())),
 			functor_UpdateVertexIsFocusByLens(
 				thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data()),
 				thrust::raw_pointer_cast(d_vec_origPosClip.data()), 
@@ -799,71 +813,118 @@ __device__  inline bool doIntersect(float2 p1, float2 q1, float2 p2, float2 q2)
     return false; // Doesn't fall in any of the above cases
 }
 
+	//thrust::for_each(
+	//	thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.begin(),counting_zero)),
+	//	thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.end(), counting_zero+ d_vec_filledOffset.size())),
+	//	functor_ComputeCutPointsWithLine(
+	//		thrust::raw_pointer_cast(d_vec_ellipseSet.data()),
+	//		_h_vec_ellipseSet->size(),
+	//		thrust::raw_pointer_cast(d_vec_posScreen.data())
+	//		));
+
+//__device__ __host__ inline bool InsideBlade(float2 p, ellipse e)
+//{
+//
+//}
+
 struct functor_ComputeCutPointsWithLine
 {
-//	bool *isCutPoint;
 	ellipse* ellipseSet;
 	int numEllipses;
 	float2* posScreen;
-	int* lineIndex;
 
 	template <typename T>
 	__device__ void operator() (T t)
 	{
-	//	int isCutPoint = thrust::get<0>(t);
-		int index = thrust::get<1>(t);
-		if(lineIndex[index] < 0 || 0 == index )//when index == 0, posScreen[index - 1] has no value
-			return;
-		for(int j = 0; j < numEllipses; j++)
+		bool vertexIsFocus = thrust::get<1>(t);
+		int cutPointsMark = thrust::get<0>(t);
+		if(vertexIsFocus)
 		{
-			ellipse e = ellipseSet[j];
-			float2 line[2];
-			line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
-			line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
-			if(doIntersect(
-				posScreen[index - 1], posScreen[index], 
-				line[0], line[1]))
-				thrust::get<0>(t) = index;
+			if(2 == cutPointsMark)
+				thrust::get<0>(t) = 0;
+			return;
+		}
+
+		int index = thrust::get<2>(t);
+		if(0 == index )//when index == 0, posScreen[index - 1] has no value
+			return;
+
+		//meaning of the values of cutPointMark:
+		//0: not any cut point
+		//1: the first vertex of a streamline
+		//2: the cut point
+		if(2 == cutPointsMark)		//see weather make it 0
+		{
+			//no use!!!
+			//recover the cut points that have left the ellipse region
+			//bool insideAnyBlades = false;
+			//for(int j = 0; j < numEllipses; j++)
+			//{
+			//	if(inOneBlade(ellipseSet[j], ellipseSet[j].b * 0.8, posScreen[index]))
+			//		insideAnyBlades = true;
+			//}
+			//if(!insideAnyBlades)
+			//	thrust::get<0>(t) = 0;
+		}	
+		else if(0 == cutPointsMark) {
+			for(int j = 0; j < numEllipses; j++)
+			{
+				ellipse e = ellipseSet[j];
+				float2 line[2];
+				line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+				line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+				if(doIntersect(
+					posScreen[index - 1], posScreen[index], 
+					line[0], line[1]))
+					thrust::get<0>(t) = 2;
+			}
+		}
+		else //(1 == cutPointsMark )	
+		{
+			//doing nothing
 		}
 	}
 
 	functor_ComputeCutPointsWithLine(
-		ellipse* _ellipseSet, int _numEllipses, float2* _posScreen, int* _lineIndex)
+		ellipse* _ellipseSet, int _numEllipses, float2* _posScreen)
 	{
 		ellipseSet = _ellipseSet;
 		numEllipses = _numEllipses;
 		posScreen = _posScreen;
-		lineIndex = _lineIndex;
 	}
 };
 
-struct functor_AssignFilledOffsets
+	//thrust::for_each(
+	//	thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.begin(), d_vec_filledOffset.begin(), counting_zero)),
+	//	thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.end(), d_vec_filledOffset.end(), counting_zero + _d_vec_cutPointsMark.size())),
+	//	functor_AssignFilledOffsetsFramMask()
+	//	);
+struct functor_AssignFilledOffsetsFramMask
 {
-	int *filledOffset;
-	bool *vertexIsFocus;
-
 	template <typename T>
 	__device__ void operator() (T t)
 	{
-	//	if(0 != offset)
-		int offset = thrust::get<0>(t);
-		int length = thrust::get<1>(t);
-		//bool hasOneFocus = false;
-		/*for(int i = offset; i < (offset + length); i++)	{
-			if(vertexIsFocus[i])
-			{*/
-				//hasOneFocus = true;
-			//	break;
-		/*	}
-		}*/
-		//if(!vertexIsFocus[offset])
-			filledOffset[offset] = offset;
+		int cutPointsMask = thrust::get<0>(t);
+		int idx = thrust::get<2>(t);
+		if(1 == cutPointsMask || 2 == cutPointsMask)
+			thrust::get<1>(t) = idx;
+	}
+};
+
+struct functor_UpdateCutPointsMarkByConnectivity
+{
+	int *cutPointsMark;
+
+	//template <typename T>
+	__device__ void operator() (int offset)
+	{
+//		int offset = thrust::get<0>(t);
+		cutPointsMark[offset] = 1;
 	}
 
-	functor_AssignFilledOffsets(int *_filledOffset, bool *_vertexIsFocus)
+	functor_UpdateCutPointsMarkByConnectivity(int *_cutPointsMark)
 	{
-		filledOffset = _filledOffset;
-		vertexIsFocus = _vertexIsFocus;
+		cutPointsMark = _cutPointsMark;
 	}
 };
 
@@ -952,66 +1013,54 @@ void UpdateLineIndex()
 
 void ComputeCutPoints()
 {
-	//std::vector<bool>  isCutPoint;
 	//this offset use the index to mark the first element of a streamline, 
 	//and use -1 to mark the others
 	thrust::device_vector<int> d_vec_filledOffset;	
 	d_vec_filledOffset.assign(_nv, -1);
-	thrust::for_each(
-		//d_vec_streamlineOffsets.begin(), d_vec_streamlineOffsets.end(),
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin())),
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end())),
-	functor_AssignFilledOffsets(
-		thrust::raw_pointer_cast(d_vec_filledOffset.data()),
-		thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data())
-		));
+	//thrust::for_each(
+	//	//d_vec_streamlineOffsets.begin(), d_vec_streamlineOffsets.end(),
+	//	thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.begin(), d_vec_streamlineLengths.begin())),
+	//	thrust::make_zip_iterator(thrust::make_tuple(d_vec_streamlineOffsets.end(), d_vec_streamlineLengths.end())),
+	//functor_AssignFilledOffsets(
+	//	thrust::raw_pointer_cast(d_vec_filledOffset.data()),
+	//	thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data())
+	//	));
 
-	//cout<<"**1"<<endl;
-	//cout<<"cnt1:"<<d_vec_streamlineOffsets.size()<<endl;
 	thrust::device_vector<float2> d_vec_posScreen(_nv);
 	thrust::device_vector<float4> d_vec_posClip(_nv);
 	thrust::transform(_d_vec_pos.begin(), _d_vec_pos.end(), d_vec_posClip.begin(), functor_Object2Clip());
 	thrust::transform(d_vec_posClip.begin(), d_vec_posClip.end(), d_vec_posScreen.begin(), functor_Clip2Screen());
 
 	thrust::device_vector<ellipse> d_vec_ellipseSet = *_h_vec_ellipseSet;
-	//we should consider the last element of each streamline also as a cut point
-	/////!!!!!!!here should be using the new offsets!!!!!!
-	//cout<<"**2"<<endl;
 
+	//compute the new _d_vec_cutPointsMark
 	thrust::for_each(
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_filledOffset.begin(),counting_zero)),
-		thrust::make_zip_iterator(thrust::make_tuple(d_vec_filledOffset.end(), counting_zero+ d_vec_filledOffset.size())),
+		thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.begin(), _d_vec_vertexIsFocus.begin(), counting_zero)),
+		thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.end(), _d_vec_vertexIsFocus.end(), counting_zero+ d_vec_filledOffset.size())),
 		functor_ComputeCutPointsWithLine(
-			//thrust::raw_pointer_cast(d_vec_IsCutPoint.data()), 
 			thrust::raw_pointer_cast(d_vec_ellipseSet.data()),
 			_h_vec_ellipseSet->size(),
-			thrust::raw_pointer_cast(d_vec_posScreen.data()),
-			thrust::raw_pointer_cast(_d_vec_lineIndex.data()))
-			);
-	//cout<<"**3"<<endl;
+			thrust::raw_pointer_cast(d_vec_posScreen.data())
+			));
 
+	//use _d_vec_cutPointsMark to update d_vec_filledOffset
+	thrust::for_each(
+		thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.begin(), d_vec_filledOffset.begin(), counting_zero)),
+		thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.end(), d_vec_filledOffset.end(), counting_zero + _d_vec_cutPointsMark.size())),
+		functor_AssignFilledOffsetsFramMask()
+		);
+
+	//use d_vec_filledOffset to update connectivity
 	thrust::device_vector<int>::iterator filledOffsetEnd = thrust::remove(d_vec_filledOffset.begin(), d_vec_filledOffset.end(), -1); 
-	//cout<<"**4"<<endl;
-	//the next step is to convert the "isCutPoints" into "number" and "offsets"
-	//thrust::for_each(
-	//	thrust::make_zip_iterator(thrust::make_tuple(d_vec_IsCutPoint.begin(),counting_zero)),
-	//	thrust::make_zip_iterator(thrust::make_tuple(d_vec_IsCutPoint.end(), counting_zero+ d_vec_IsCutPoint.size())),
-	//	functor_FindIndexFromCutPoint(
 	int newSize = filledOffsetEnd - d_vec_filledOffset.begin();
-	//cout<<"cnt2:"<<newSize<<endl;
 	d_vec_streamlineOffsets.resize(newSize);
 	thrust::copy(d_vec_filledOffset.begin(), filledOffsetEnd, d_vec_streamlineOffsets.begin());
-	//cout<<"**5"<<endl;
 	thrust::device_vector<int> d_vec_streamlineLengthsTmp(newSize);
 	thrust::adjacent_difference(d_vec_streamlineOffsets.begin(), d_vec_streamlineOffsets.end(), d_vec_streamlineLengthsTmp.begin());
-	//cout<<"**6"<<endl;
 	d_vec_streamlineLengths.resize(newSize);
 	thrust::copy(d_vec_streamlineLengthsTmp.begin() + 1, d_vec_streamlineLengthsTmp.end(), d_vec_streamlineLengths.begin());
-	//cout<<"**7"<<endl;
 	d_vec_streamlineLengths.back() = _nv - d_vec_streamlineOffsets.back();
-	//cout<<"**8"<<endl;
-//	thrust::host_vector<bool> h_vec_IsCutPoint = d_vec_IsCutPoint;
-//	return h_vec_IsCutPoint;
+	
 	UpdateLineIndex();
 }
 
@@ -1058,6 +1107,10 @@ void SetVertexCoords(float* data, int n)
 	_d_vec_lineIndexOrig.resize(_nv);
 	_d_vec_lineIndex.resize(_nv);
 	_d_vec_vertexIsFocus.resize(_nv);
+
+	_d_vec_cutPointsMark.resize(_nv, 0);	//use 0 to mark the vertex that are not cut point	
+	_d_vec_cutPointsMarkOrig.resize(_nv, 0);	//use 0 to mark the vertex that are not cut point	
+
 
 	//_d_vec_IsCutPoint.resize(_nv);
 	//_d_vec_IsCutPoint.assign(_nv, false);
@@ -1109,7 +1162,7 @@ void SetPickedLineSet(std::vector<int> *pickedLineSet)
 //
 //}
 
-void SetPrimitive(thrust::host_vector<int> &length, thrust::host_vector<int> &offset)
+void SetConnectivity(thrust::host_vector<int> &length, thrust::host_vector<int> &offset)
 {
 	int numLines = length.size();
 	d_vec_streamlineLengths.resize(numLines);
@@ -1133,10 +1186,19 @@ void SetPrimitive(thrust::host_vector<int> &length, thrust::host_vector<int> &of
 	UpdateLineIndex();
 	_d_vec_lineIndexOrig = _d_vec_lineIndex;
 
+	thrust::for_each(
+		d_vec_streamlineOffsets.begin(),
+		d_vec_streamlineOffsets.end(),
+	functor_UpdateCutPointsMarkByConnectivity(
+		thrust::raw_pointer_cast(_d_vec_cutPointsMarkOrig.data())
+		));
+	_d_vec_cutPointsMark = _d_vec_cutPointsMarkOrig;
+
+
 	check_cuda_errors(__FILE__, __LINE__);
 }
 
-void GetPrimitive(thrust::host_vector<int> &offsets, thrust::host_vector<int> &lengths)
+void GetConnectivity(thrust::host_vector<int> &offsets, thrust::host_vector<int> &lengths)
 {
 	lengths = d_vec_streamlineLengths;
 	offsets = d_vec_streamlineOffsets;

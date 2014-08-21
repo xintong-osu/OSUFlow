@@ -74,10 +74,10 @@ void ResetVertexIsFocus();
 void SetHull(std::vector<hull_type> *hullSet);
 
 //void SetPrimitiveLength(std::vector<int> data);
-//void SetPrimitive(std::vector<int> data, thrust::host_vector<int> &offset);
-void SetPrimitive(thrust::host_vector<int> &length, thrust::host_vector<int> &offset);
+//void SetConnectivity(std::vector<int> data, thrust::host_vector<int> &offset);
+void SetConnectivity(thrust::host_vector<int> &length, thrust::host_vector<int> &offset);
 
-void GetPrimitive(thrust::host_vector<int> &offsets, thrust::host_vector<int> &lengths);
+void GetConnectivity(thrust::host_vector<int> &offsets, thrust::host_vector<int> &lengths);
 
 void SetParaCUDA(float eps);
 
