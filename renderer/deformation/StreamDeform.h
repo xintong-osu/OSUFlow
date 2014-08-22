@@ -313,8 +313,8 @@ class StreamDeform
 	int winWidth, winHeight;
 	//int pickedBundleIndex;
 	set<int> _pickedBundleSet;
-	vector<int> _pickedLineSet;
-	vector<int> _pickedLineSetOrig;
+	thrust::host_vector<int> _pickedLineSet;
+	thrust::host_vector<int> _pickedLineSetOrig;
 	vector<ellipse> _focusEllipseSet;
 	vector<hull_type> _focusHullSet;
 
@@ -367,9 +367,9 @@ class StreamDeform
 	char *_filename_dist;
 
 	void ClusterStreamByBoundingBox(vector<int> streamIndices, vector<vector<int>> &streamGroups);
-	vector<vector<VECTOR4>> Groups2Hull(vector<vector<int>> streamGroups);
+	vector<vector<VECTOR4>> Groups2Hull(vector<thrust::host_vector<int>> streamGroups);
 	//GenGroupsSamplePoint
-	void ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices, vector<vector<int>> &streamGroups);
+	void ClusterStreamByBoundingBoxOnScreen(thrust::host_vector<int> streamIndices, vector<thrust::host_vector<int>> &streamGroups);
 
 	float Object2ScreenLength(float length_object, VECTOR4 center_object);
 	//float Screen2ObjectLength(float length_screen, float depth_screen);

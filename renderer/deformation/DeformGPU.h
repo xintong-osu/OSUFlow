@@ -62,7 +62,7 @@ void SetEllipse(std::vector<ellipse> *ellipseSet);
 
 //void SetIsCutPoint(std::vector<bool>* isCutPoint);
 
-void SetPickedLineSet(std::vector<int> *pickedLineSet);
+void SetPickedLineSet(thrust::host_vector<int> *pickedLineSet);
 
 void SetVertexCoords(float* data, int n);
 
@@ -95,7 +95,7 @@ void UpdateVertexIsFocusByLens();
 
 void SetMode(DEFORM_MODE *deformMode, SOURCE_MODE *sourceMode);
 
-std::vector<VECTOR2> GetPosScreenOrig();
+thrust::host_vector<float2> GetPosScreenOrig();
 
 void AssignLineIndexFromDevice(int *data);
 
@@ -110,7 +110,7 @@ void RestoreConnectivity();
 
 void UpdateLineIndex();
 
-std::vector<int> PickStreamByBlockCUDA(float min[3], float max[3]);
+thrust::host_vector<int> PickStreamByBlockCUDA(float min[3], float max[3]);
 
 // This will output the proper CUDA error strings in the event that a CUDA host call returns an error
 #define checkCudaErrors(err)           __checkCudaErrors (err, __FILE__, __LINE__)

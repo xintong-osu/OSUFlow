@@ -1215,7 +1215,7 @@ inline void MergeBox2ToBox1(box2 &b1, box2 &b2)
 	}
 }
 
-void StreamDeform::ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices, vector<vector<int>> &streamGroups)
+void StreamDeform::ClusterStreamByBoundingBoxOnScreen(thrust::host_vector<int> streamIndices, vector<thrust::host_vector<int>> &streamGroups)
 {
     size_t num_bytes; 
     //checkCudaErrors(cudaGraphicsMapResources(1, &cuda_vbo_clip_resource, 0));
@@ -1228,7 +1228,7 @@ void StreamDeform::ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices,
 	//cout<<"**1"<<endl;
 	list<box2> groupBoxes;
 
-	std::vector<VECTOR2> pos = GetPosScreenOrig();
+	thrust::host_vector<float2> pos = GetPosScreenOrig();
 
 	for(int i = 0; i < streamIndices.size(); i++)
 	{
@@ -1237,7 +1237,10 @@ void StreamDeform::ClusterStreamByBoundingBoxOnScreen(vector<int> streamIndices,
 	//	vector<VECTOR4> line(vec_clip.begin() + _primitiveOffsets[i], vec_clip.begin() + _primitiveOffsets[i] + _primitiveLengths[i]);
 		vector<VECTOR2> line;
 		for(int j = 0; j < _primitiveLengths[idx]; j++)
-			line.push_back(pos[_primitiveOffsets[idx] + j]);
+		{
+			float2 p = pos[_primitiveOffsets[idx] + j];
+			line.push_back(VECTOR2(p.x, p.y));
+		}
 		//box3 tmp = ;
 		//tmp.print();
 		groupBoxes.push_back(GenBox2(idx, line));
@@ -1320,7 +1323,7 @@ inline float Distance(Point_3 p, vector<VECTOR4> curve)
 	return minDistance;
 }
 
-vector<vector<VECTOR4>> StreamDeform::Groups2Hull(vector<vector<int>> streamGroups)
+vector<vector<VECTOR4>> StreamDeform::Groups2Hull(vector<thrust::host_vector<int>> streamGroups)
 {
 	vector<vector<VECTOR4>> hulls;
 	vector<vector<Point_3>> groupSamplePoints;
@@ -1556,7 +1559,7 @@ vector<VECTOR4>* StreamDeform::GetPrimitiveColors()
 void StreamDeform::PickStreamByBlock()
 {
 	_pickedLineSet = PickStreamByBlockCUDA(&_pickBlockStart[0], &(_pickBlockStart + _pickBlockSize)[0]);
-	vector<vector<int>> streamGroups;
+	vector<thrust::host_vector<int>> streamGroups;
 	streamGroups.push_back(_pickedLineSet);
 	//ClusterStreamByBoundingBoxOnScreen(_pickedLineSet, streamGroups);
 	//cout<<"streamGroups.size():"<<streamGroups.size()<<endl;
@@ -1566,7 +1569,7 @@ void StreamDeform::PickStreamByBlock()
 
 void StreamDeform::BuildLineGroups()
 {
-	vector<vector<int>> streamGroups;
+	vector<thrust::host_vector<int>> streamGroups;
 	ClusterStreamByBoundingBoxOnScreen(_pickedLineSet, streamGroups);
 	//UpdateVertexIsFocus();
 	_picked3DHulls = Groups2Hull(streamGroups);

@@ -73,7 +73,7 @@ thrust::device_vector<int> _d_vec_cutPointsMark;
 
 
 thrust::counting_iterator<int> counting_zero(0);
-std::vector<int> *_pickedLineSet;
+thrust::host_vector<int> *_pickedLineSet;
 
 //lens
 float *_lens_center;
@@ -697,37 +697,21 @@ struct functor_GetLineIndexInRange
 	}
 };
 
-vector<int> PickStreamByBlockCUDA(float min[3], float max[3])
+thrust::host_vector<int> PickStreamByBlockCUDA(float min[3], float max[3])
 {
-	//cout<<"min:"<<min[0]<<","<<min[1]<<","<<min[2]<<endl;
-	//cout<<"max:"<<max[0]<<","<<max[1]<<","<<max[2]<<endl;
 	vector<int> picked;
 	thrust::device_vector<int> result(_nv, -1);
-	//cout<<"**1"<<endl;
-	//functor_GetLineIndexInRange func(min, max);
 	thrust::for_each(
 		thrust::make_zip_iterator(thrust::make_tuple(
 		_d_vec_lineIndexOrig.begin(), _d_vec_origPos.begin(), result.begin())), 
 		thrust::make_zip_iterator(thrust::make_tuple(
 		_d_vec_lineIndexOrig.end(),	_d_vec_origPos.end(), result.end())), 
 		functor_GetLineIndexInRange(min, max));
-	//cout<<"**2"<<endl;
 
 	thrust::device_vector<int>::iterator newEnd = thrust::unique(result.begin(), result.end());
 	newEnd = thrust::remove(result.begin(), newEnd, -1);
-	//cout<<"**3"<<endl;
 	thrust::host_vector<int> h_result(result.begin(), newEnd);
-	//cout<<"**4"<<endl;
-	//thrust::copy(h_result.begin(), h_result.end(), picked.begin());
-	//cout<<"picked lines:";
-	for(int i = 0; i < h_result.size(); i++)
-	{
-		picked.push_back(h_result[i]);
-		//cout<<h_result[i]<<",";
-	}
-	//cout<<endl;
-	//cout<<"**5"<<endl;
-	return picked;
+	return h_result;
 }
 
 struct functor_GenLineIndex
@@ -1152,7 +1136,7 @@ void SetEllipse(std::vector<ellipse> *ellipseSet)
 	_h_vec_ellipseSet = ellipseSet;
 }
 
-void SetPickedLineSet(std::vector<int> *pickedLineSet)
+void SetPickedLineSet(thrust::host_vector<int> *pickedLineSet)
 {
 	_pickedLineSet = pickedLineSet;
 }
@@ -1257,7 +1241,7 @@ void SetMatrix(	float* modelview, float* projection, float* invModelView, float*
 
 }
 
-std::vector<VECTOR2> GetPosScreenOrig()
+thrust::host_vector<float2> GetPosScreenOrig()
 {
 	thrust::device_vector<float2> d_vec_origPosScreen(_nv);
 	thrust::device_vector<float4> d_vec_origPosClip(_nv);
@@ -1265,11 +1249,5 @@ std::vector<VECTOR2> GetPosScreenOrig()
 	thrust::transform(d_vec_origPosClip.begin(), d_vec_origPosClip.end(), d_vec_origPosScreen.begin(), functor_Clip2Screen());
 
 	thrust::host_vector<float2> h_vec_screen  = d_vec_origPosScreen;
-	std::vector<VECTOR2> vec_clip;
-	for(int i = 0; i < h_vec_screen.size(); i++)
-	{
-		float2 tmp = h_vec_screen[i];
-		vec_clip.push_back(VECTOR2(tmp.x, tmp.y));
-	}
-	return vec_clip;
+	return h_vec_screen;
 }
