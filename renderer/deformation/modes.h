@@ -35,4 +35,10 @@ enum DIRECTION
 	DIR_OUT,
 };
 
+enum VISUAL_MODE
+{
+	DEFORM,
+	TRANSP,
+};
+
 #endif

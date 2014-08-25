@@ -237,13 +237,15 @@ class StreamDeform
 	DEFORM_MODE _deformMode;
 	SOURCE_MODE _sourceMode;
 	INTERACT_MODE _interactMode;
+	VISUAL_MODE _visualMode;
 
 	bool bDragging;
 	int _prevToX, _prevToY;
 
 	struct cudaGraphicsResource *cuda_vbo_clip_resource;
 	struct cudaGraphicsResource *cuda_vbo_tangent_resource;
-
+	struct cudaGraphicsResource *cuda_vbo_translucent_resource;
+	
 	//streamline index and its vertex one step in the past
 /*	vector<int> _prevLinesIndex;
 	vector<vector<VECTOR4>> _prevLinesVertex;	*/	
@@ -435,6 +437,7 @@ public:
 
 	void SetCudaResourceClip(cudaGraphicsResource *_cuda_vbo_clip_resource);
 	void SetCudaResourceTangent(cudaGraphicsResource *_cuda_vbo_tangent_resource);
+	void SetCudaResourceTranslucent(cudaGraphicsResource *_cuda_vbo_translucent_resource);
 	void SetWinSize(int _winWidth, int _winHeight);
 	void GenHullEllipse();
 	void SetDomain(float pfMin[4], float pfMax[4]);
@@ -463,6 +466,8 @@ public:
 
 	float* GetLensCenter();
 	SOURCE_MODE GetSourceMode();
+	VISUAL_MODE GetVisualMode();
+	void SetVisualMode(VISUAL_MODE m);
 	void ChangeLensRadius(int m);
 	void ChangeLensAngle(int m);
 	void ChangeLensChangeStep(float m);

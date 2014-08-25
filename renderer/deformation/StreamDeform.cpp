@@ -294,6 +294,7 @@ StreamDeform::StreamDeform(void)
 	//SetStreamDeform(this);
 	_deformOn = true;
 	_interactMode = INTERACT_MODE::TRANSFORMATION;
+	_visualMode = VISUAL_MODE::DEFORM;
 	SetDeformOnPara(&_deformOn);
 }
 
@@ -465,6 +466,11 @@ void StreamDeform::SetCudaResourceClip(cudaGraphicsResource *_cuda_vbo_clip_reso
 void StreamDeform::SetCudaResourceTangent(cudaGraphicsResource *_cuda_vbo_tangent_resource)
 {
 	cuda_vbo_tangent_resource = _cuda_vbo_tangent_resource;
+}
+
+void StreamDeform::SetCudaResourceTranslucent(cudaGraphicsResource *_cuda_vbo_translucent_resource)
+{
+	cuda_vbo_translucent_resource = _cuda_vbo_translucent_resource;
 }
 
 void StreamDeform::SetWinSize(int _winWidth, int _winHeight)
@@ -856,6 +862,7 @@ void StreamDeform::RunCuda()
 
 	// map OpenGL buffer object for writing from CUDA
 	float3 *d_raw_tangent;
+	int *d_raw_translucent;
     size_t num_bytes; 
 
     checkCudaErrors(cudaGraphicsMapResources(1, &cuda_vbo_clip_resource, 0));
@@ -865,6 +872,10 @@ void StreamDeform::RunCuda()
 	checkCudaErrors(cudaGraphicsMapResources(1, &cuda_vbo_tangent_resource, 0));
     checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_raw_tangent, &num_bytes,  
 						       cuda_vbo_tangent_resource));
+
+	checkCudaErrors(cudaGraphicsMapResources(1, &cuda_vbo_translucent_resource, 0));
+    checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_raw_translucent, &num_bytes,  
+						       cuda_vbo_translucent_resource));
 
 	check_cuda_errors(__FILE__, __LINE__);
 
@@ -889,7 +900,7 @@ void StreamDeform::RunCuda()
 
 	//SetEllipse(&_focusEllipseSet);
 	SetHull(&_focusHullSet);
-	SetVBOData(_d_raw_clip, d_raw_tangent);
+	SetVBOData(_d_raw_clip, d_raw_tangent, d_raw_translucent);
 
 	if(_vertexCount > 0)
 		launch_kernel(t0);
@@ -900,6 +911,8 @@ void StreamDeform::RunCuda()
     // unmap buffer object
     checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_vbo_clip_resource, 0));
     checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_vbo_tangent_resource, 0));
+    checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_vbo_translucent_resource, 0));
+	
 //#if (TEST_PERFORMANCE == 4)
 //	PrintElapsedTime(t0, "Unmap cuda resource time");
 //#endif
@@ -1504,6 +1517,17 @@ void StreamDeform::SetDeformOn(bool b)
 {
 	_deformOn = b;
 }
+
+VISUAL_MODE StreamDeform::GetVisualMode()
+{
+	return _visualMode;
+}
+
+void StreamDeform::SetVisualMode(VISUAL_MODE m)
+{
+	_visualMode = m;
+}
+
 
 void StreamDeform::_LoadBundleFile(char *filename)
 {

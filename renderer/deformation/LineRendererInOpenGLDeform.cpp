@@ -518,6 +518,12 @@ inline VECTOR2 GetEllipsePoint(ellipse e, float t)
 			e.y + e.a * cos(t) * sin(e.angle) + e.b * sin(t) * cos(e.angle));
 }
 
+//void 
+//CLineRendererInOpenGLDeform::DrawStreamlines()
+//{
+//
+//}
+
 void 
 CLineRendererInOpenGLDeform::_Draw()
 {
@@ -559,6 +565,10 @@ CLineRendererInOpenGLDeform::_Draw()
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	if(VISUAL_MODE::TRANSP == _deformLine.GetVisualMode())
+		_deformLine.SetDeformOn(false);
+	else
+		_deformLine.SetDeformOn(true);
 
 	_deformLine.RunCuda();
 
@@ -580,40 +590,82 @@ CLineRendererInOpenGLDeform::_Draw()
 
 	glBindBuffer(GL_ARRAY_BUFFER, g_vbo_tangent);
 	glVertexAttribPointer(g_loc_tangent, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, g_vbo_translucent);
+	glVertexAttribPointer(g_loc_translucent, 1, GL_INT, GL_FALSE, 0, 0);
+
 	VECTOR4 cyan(0.0f, 1.0f, 1.0f, 1.0f);
 	
 	thrust::host_vector<int> streamOffsetsRender = _deformLine.GetPrimitiveOffsets();
 	thrust::host_vector<int> streamLengthsRender = _deformLine.GetPrimitiveLengths();
-	if(bIsHaloEnabled )
-	{
-		// pass 1: draw the halo
-		glLineWidth(cHalo.fWidth * 2 );
-		for(int il = 0; il < streamLengthsRender.size(); il++)
-		{
-			VECTOR4 haloColor;
-			//if(_deformLine.GetLinePicked(il))
-			//	haloColor = VECTOR4(cyan[0], cyan[1], cyan[2], 0.5f);
-			//else
-				haloColor = VECTOR4(cHalo.v4Color[0], cHalo.v4Color[1], cHalo.v4Color[2], 0.5f);
-			
-			glUniform4fv(g_loc_color, 1, &haloColor[0]);
-			glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[0] + streamOffsetsRender[il], 
-				streamLengthsRender[il]);
-		}
-	}
-	if( bIsHaloEnabled )
-	{
-		glDepthFunc(GL_LEQUAL);
-	}
 
-	glLineWidth(cLine.fWidth * 2);
-	
+	//shader mode:
+	//0: opaque line color
+	//1: opaque halo color
+	//2: translucent line color, outside of focus
+	//3: translucent halo color, outside of focus
+	//4: translucent line color, inside of focus
+	//5: translucent halo color, inside of focus
+	glUniform1i(g_loc_mode, 0);
+	// pass 1: draw the halo
+	if(VISUAL_MODE::TRANSP != _deformLine.GetVisualMode())
+		glUniform1i(g_loc_mode, 1);
+	else
+		glUniform1i(g_loc_mode, 3);
+
+	glLineWidth(cHalo.fWidth * 2 );
+	VECTOR4 haloColor;
+	//if(_deformLine.GetLinePicked(il))
+	//	haloColor = VECTOR4(cyan[0], cyan[1], cyan[2], 0.5f);
+	//else
+	haloColor = VECTOR4(cHalo.v4Color[0], cHalo.v4Color[1], cHalo.v4Color[2], 0.5f);
+			
+	glUniform4fv(g_loc_color, 1, &haloColor[0]);
 	for(int il = 0; il < streamLengthsRender.size(); il++)
 	{
-		glUniform4f(g_loc_color, 0.5f, 0.5f, 0.5f, 1.0f);
 		glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[0] + streamOffsetsRender[il], 
 			streamLengthsRender[il]);
 	}
+
+	glDepthFunc(GL_LEQUAL);
+
+	glLineWidth(cLine.fWidth * 2);
+	
+	if(VISUAL_MODE::TRANSP != _deformLine.GetVisualMode())
+		glUniform1i(g_loc_mode, 0);
+	else
+		glUniform1i(g_loc_mode, 2);
+	for(int il = 0; il < streamLengthsRender.size(); il++)
+	{
+		glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[0] + streamOffsetsRender[il], 
+			streamLengthsRender[il]);
+	}
+
+	///////draw transparent part///////
+	if(VISUAL_MODE::TRANSP == _deformLine.GetVisualMode())
+	{
+		glDisable(GL_DEPTH_TEST);
+
+		glLineWidth(cHalo.fWidth * 2 );
+		glUniform1i(g_loc_mode, 5);
+		for(int il = 0; il < streamLengthsRender.size(); il++)
+		{
+			glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[0] + streamOffsetsRender[il], 
+				streamLengthsRender[il]);
+		}
+
+
+		glLineWidth(cLine.fWidth * 2);
+		glUniform1i(g_loc_mode, 4);
+		for(int il = 0; il < streamLengthsRender.size(); il++)
+		{
+			glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[0] + streamOffsetsRender[il], 
+				streamLengthsRender[il]);
+		}
+		glEnable(GL_DEPTH_TEST);
+	}
+
+	/////////////
 
 	//draw other features 
 	//draw lens center
@@ -893,6 +945,7 @@ void CLineRendererInOpenGLDeform::InitGL()
 	glGenBuffers(1, &g_vbo_vertexColor);
 	glGenBuffers(1, &g_vbo_clipCoords);
 	glGenBuffers(1, &g_vbo_tangent);
+	glGenBuffers(1, &g_vbo_translucent);
 
 	/////////////////shaders////////////////
 	ShaderProgram line_program;
@@ -904,6 +957,8 @@ void CLineRendererInOpenGLDeform::InitGL()
 	g_loc_projection = glGetUniformLocation(line_programID, "projectionMatrix");
     g_loc_modelView = glGetUniformLocation(line_programID, "modelViewMatrix");
     g_loc_color = glGetUniformLocation(line_programID,"line_color");
+    g_loc_mode = glGetUniformLocation(line_programID,"mode");
+	g_loc_translucent = glGetAttribLocation(line_programID, "translucent");
 
 	//enable transparency
 	glEnable (GL_BLEND);
@@ -1070,18 +1125,34 @@ void CLineRendererInOpenGLDeform::AllocGLBuffer()
 	glEnableVertexAttribArray(g_loc_tangent);
     glBufferData(GL_ARRAY_BUFFER, 3*cVertexArray.iNrOfVertices*sizeof(GLfloat), 0, GL_DYNAMIC_DRAW);//GL_DYNAMIC_COPY );//could be GL_STATIC_DRAW
 	check_cuda_errors(__FILE__, __LINE__);
+    SDK_CHECK_ERROR_GL();
 
+	//initiate transparency
+	glBindBuffer(GL_ARRAY_BUFFER, g_vbo_translucent);
+	glEnableVertexAttribArray(g_loc_translucent);
+    glBufferData(GL_ARRAY_BUFFER, cVertexArray.iNrOfVertices*sizeof(GLint), 0, GL_DYNAMIC_DRAW);//GL_DYNAMIC_COPY );//could be GL_STATIC_DRAW
+	check_cuda_errors(__FILE__, __LINE__);
+
+    SDK_CHECK_ERROR_GL();
 	cudaGraphicsGLRegisterBuffer(&cuda_vbo_clip_resource, 
 		g_vbo_clipCoords, cudaGraphicsMapFlagsWriteDiscard);
 	check_cuda_errors(__FILE__, __LINE__);
 
+    SDK_CHECK_ERROR_GL();
 	cudaGraphicsGLRegisterBuffer(&cuda_vbo_tangent_resource, 
 		g_vbo_tangent, cudaGraphicsMapFlagsWriteDiscard);
+    SDK_CHECK_ERROR_GL();
+
+	cudaGraphicsGLRegisterBuffer(&cuda_vbo_translucent_resource, 
+		g_vbo_translucent, cudaGraphicsMapFlagsWriteDiscard);
+
+    SDK_CHECK_ERROR_GL();
 	//cout<<"***0"<<endl;
 	//cout<<"g_vbo_clipCoords:"<<g_vbo_clipCoords<<endl;
 
 	_deformLine.SetCudaResourceClip(cuda_vbo_clip_resource);
 	_deformLine.SetCudaResourceTangent(cuda_vbo_tangent_resource);
+	_deformLine.SetCudaResourceTranslucent(cuda_vbo_translucent_resource);
 
     SDK_CHECK_ERROR_GL();
 }

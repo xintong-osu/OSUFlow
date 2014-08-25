@@ -81,7 +81,7 @@ void GetConnectivity(thrust::host_vector<int> &offsets, thrust::host_vector<int>
 
 void SetParaCUDA(float eps);
 
-void SetVBOData(float4* d_raw_clip, float3* d_raw_tangent);
+void SetVBOData(float4* d_raw_clip, float3* d_raw_tangent, int* d_raw_translucent);
 
 void SetLineIndexCUDA(int *data);
 

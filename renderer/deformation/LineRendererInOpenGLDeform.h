@@ -48,11 +48,14 @@ class CLineRendererInOpenGLDeform :
     GLint g_loc_projection;
     GLint g_loc_modelView;
     GLint g_loc_color;
+	GLint g_loc_mode;
+	GLint g_loc_translucent;
 
 	GLuint g_vbo_pfCoords_static;
 	GLuint g_vbo_clipCoords;
 	GLuint g_vbo_tangent;
 	GLuint g_vbo_vertexColor;
+	GLuint g_vbo_translucent;
 
 	typedef GLdouble TMatrix[16];
 	TMatrix tModelViewMatrix;
@@ -65,6 +68,7 @@ class CLineRendererInOpenGLDeform :
 	//struct cudaGraphicsResource *cuda_vbo_resource;
 	struct cudaGraphicsResource *cuda_vbo_clip_resource;
 	struct cudaGraphicsResource *cuda_vbo_tangent_resource;
+	struct cudaGraphicsResource *cuda_vbo_translucent_resource;
 
 	//Functions:
 	//OpenGL
@@ -188,6 +192,8 @@ public:
 	// ADD-BY-LEETEN 09/14/2010-END
 
 	virtual void _Draw();
+	//virtual void DrawStreamlines();
+
 	virtual void _Update();
 
 	virtual void _TraverseLinesBegin(int iNrOfTraces);

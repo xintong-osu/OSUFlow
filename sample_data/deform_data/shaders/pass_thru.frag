@@ -6,5 +6,7 @@ out vec4 FragColor;
 
 void main( )
 {
+	if(0 == VetexColor.a)
+		discard;
     FragColor = VetexColor;
 }

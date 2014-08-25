@@ -52,6 +52,7 @@ __device__ __constant__ int NV;
 //these two device_ptr are the OpenGL pointer
 thrust::device_ptr<float3> _d_ptr_tangent;
 thrust::device_ptr<float4> _d_ptr_posClip;
+thrust::device_ptr<int> _d_ptr_translucent;
 
 thrust::device_vector<int> d_vec_streamlineLengths;
 thrust::device_vector<int> d_vec_streamlineOffsets;
@@ -266,39 +267,6 @@ __device__ inline float Point2Line(float2 p, float2 p0, float2 p1)
 	return ret;
 }
 
-__device__ inline bool inAnyGroup(ellipse* ellipseSet, float* radiusOuter, int cnt, float4 p)
-{
-	for(int i = 0; i < cnt; i++)
-		if(length(make_float2(ellipseSet[i].x,ellipseSet[i].y) - Object2Screen(p)) < radiusOuter[i])
-			return true;
-	return false;
-}
-
-__device__ inline bool inOneBlade(ellipse e, float radius, float2 p)
-{
-	float2 line[2];
-	line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
-	line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
-	float2 center = ProjectPoint2Line(p, line[0], line[1]);
-	if(length(center - p) < radius)
-		return true;
-}
-
-__device__ inline bool inAnyGroupLine(ellipse* ellipseSet, float* radiusOuter, int cnt, float4 p)
-{
-	for(int i = 0; i < cnt; i++)
-	{
-		ellipse e = ellipseSet[i];
-		//float2 line[2];
-		//line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
-		//line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
-		//float2 v_screen = Object2Screen(p);
-		//float2 center = ProjectPoint2Line(v_screen, line[0], line[1]);
-		if(inOneBlade(e, radiusOuter[i], Object2Screen(p)))
-			return true;
-	}
-	return false;
-}
 
 __device__ inline float Vector2Angle(float2 v)
 {
@@ -316,6 +284,70 @@ __device__ inline float radius_ellipse(ellipse e, float2 dir2Center)
 	//rotate to canonical position
 	t = t - e.angle;	
 	return e.a * e.b / sqrt(pow(e.b * cos(t),2) + pow(e.a * sin(t),2));
+}
+
+__device__ inline float radius_blade(ellipse e, float2 center)
+{
+	float parallelDist = 0.85 * length(center - make_float2(e.x, e.y));
+	return 1.25 * e.b * ( tanh(- 8.0 * parallelDist / e.a + 6.0) + 1) * 0.5;
+}
+
+__device__ inline bool inOneEllipse(ellipse e, float2 p, float radius)
+{
+	float2 center = make_float2(e.x, e.y);
+	float2 dir2Center = p - center;
+	return length(dir2Center) < radius;
+}
+
+__device__ inline bool inOneEllipse(ellipse e, float2 p)
+{
+	float2 center = make_float2(e.x, e.y);
+	float2 dir2Center = p - center;
+	float radius = radius_ellipse(e, dir2Center);
+	return length(dir2Center) < radius;
+}
+
+__device__ inline bool inAnyGroup(ellipse* ellipseSet, float* radiusOuter, int cnt, float4 p)
+{
+	for(int i = 0; i < cnt; i++)
+		if(inOneEllipse(ellipseSet[i], Object2Screen(p), radiusOuter[i]))//length(make_float2(ellipseSet[i].x,ellipseSet[i].y) - Object2Screen(p)) < radiusOuter[i])
+			return true;
+	return false;
+}
+
+__device__ inline bool inOneBlade(ellipse e, float radius, float2 p)
+{
+	float2 line[2];
+	line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+	line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+	float2 center = ProjectPoint2Line(p, line[0], line[1]);
+	return length(center - p) < radius;
+}
+
+__device__ inline bool inOneBlade(ellipse e, float2 p)
+{
+	float2 line[2];
+	line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+	line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+	float2 center = ProjectPoint2Line(p, line[0], line[1]);
+	float radius = radius_blade(e, center);
+	return length(center - p) < radius;
+}
+
+__device__ inline bool inAnyGroupLine(ellipse* ellipseSet, float* radiusOuter, int cnt, float4 p)
+{
+	for(int i = 0; i < cnt; i++)
+	{
+		ellipse e = ellipseSet[i];
+		//float2 line[2];
+		//line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+		//line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+		//float2 v_screen = Object2Screen(p);
+		//float2 center = ProjectPoint2Line(v_screen, line[0], line[1]);
+		if(inOneBlade(e, radiusOuter[i], Object2Screen(p)))
+			return true;
+	}
+	return false;
 }
 
 __device__ inline bool IsBetweenAngles(float v, float a, float b)
@@ -424,10 +456,9 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 			radius = 1.2 * radius_hull(hullSet[ie], center, v_screen);
 		else if(DEFORM_MODE::MODE_LINE == deformMode)
 		{
-			//radius = length(v_screen - center) * sin(e.angle);
-			//float ang = e.angle - atan2(v_screen.y, v_screen.x);
-			float parallelDist = 0.85 * length(center - make_float2(e.x, e.y));
-			radius = 1.25 * e.b * ( tanh(- 8.0 * parallelDist / e.a + 6.0) + 1) * 0.5;
+			//float parallelDist = 0.85 * length(center - make_float2(e.x, e.y));
+			//radius = 1.25 * e.b * ( tanh(- 8.0 * parallelDist / e.a + 6.0) + 1) * 0.5;
+			radius = radius_blade(e, center);
 		}
 		//float transWidth = generalSize * transRatio; //size of transition region, _d_ / _r_
 		float r = 0.5;
@@ -604,69 +635,6 @@ void UpdateVertexIsFocusByLens()
 				thrust::raw_pointer_cast(d_vec_origPosScreen.data()),
 				ell,
 				lensDepth_clip));
-	}
-}
-
-// Wrapper for the __global__ call that sets up the kernel call
-void launch_kernel(clock_t t0)//, unsigned int mesh_width, unsigned int mesh_height, float time)
-{
-//	clock_t t0;
-//#if (TEST_PERFORMANCE == 2)
-////	t0 = clock();
-//#endif
-	_d_vec_prePos = _d_vec_pos;
-	float4* d_raw_ptr_pos = thrust::raw_pointer_cast(_d_vec_pos.data());
-
-    // execute the kernel
-    dim3 block(256, 1, 1);
-    dim3 grid(ceil((float)_nv / block.x), 1, 1);
-
-	thrust::for_each(
-		thrust::make_zip_iterator(thrust::make_tuple(counting_zero, _d_ptr_tangent)),
-		thrust::make_zip_iterator(thrust::make_tuple(counting_zero + _nv, _d_ptr_tangent + _nv)),
-		functor_computeNormal(thrust::raw_pointer_cast(_d_vec_lineIndex.data()), d_raw_ptr_pos));
-
-	//clip coordiates of streamlines
-	thrust::transform(_d_vec_pos.begin(), _d_vec_pos.end(), _d_ptr_posClip, functor_Object2Clip());
-	thrust::transform(_d_ptr_posClip, _d_ptr_posClip + _nv, d_vec_posScreen.begin(), functor_Clip2Screen());
-
-	if(0 == _h_vec_ellipseSet->size() )
-		return;
-
-	thrust::device_vector<ellipse> d_vec_ellipseSet = *_h_vec_ellipseSet;
-#if (TEST_PERFORMANCE == 2)
-	PrintElapsedTime(t0, "prepare data(before deformation kernel)");
-#endif	
-	if(*_deformOn)
-	{
-#if (TEST_PERFORMANCE == 3)
-	    cudaEvent_t start, stop;
-		float time;
-		cudaEventCreate(&start);
-		cudaEventCreate(&stop);
-
-		cudaEventRecord(start, 0);
-#endif
-		//cout<<"_d_vec_lineIndex.back() before kernel:"<<_d_vec_lineIndex.back()<<endl;
-   		kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
-					thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
-					thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
-					thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data()),
-					_nv,
-					thrust::raw_pointer_cast(d_vec_ellipseSet.data()), 
-					thrust::raw_pointer_cast(d_vec_hullSet.data()), 
-					_h_vec_ellipseSet->size(),
-					*_deformMode,
-					_para);
-		 
-#if (TEST_PERFORMANCE == 3)
-		cudaEventRecord(stop, 0);
-		cudaEventSynchronize(stop);
-
-		cudaEventElapsedTime(&time, start, stop);
-		printf("%f\tms to %s\n", time, "run deformation kernel");
-#endif
-		check_cuda_errors(__FILE__, __LINE__);
 	}
 }
 
@@ -877,7 +845,6 @@ struct functor_ComputeCutPointsWithLine
 		posScreen = _posScreen;
 	}
 };
-
 	//thrust::for_each(
 	//	thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.begin(), d_vec_filledOffset.begin(), counting_zero)),
 	//	thrust::make_zip_iterator(thrust::make_tuple(_d_vec_cutPointsMark.end(), d_vec_filledOffset.end(), counting_zero + _d_vec_cutPointsMark.size())),
@@ -1210,10 +1177,11 @@ void SetParaCUDA(float para)
 	_para = para;
 }
 
-void SetVBOData(float4* d_raw_clip, float3* d_raw_tangent)
+void SetVBOData(float4* d_raw_clip, float3* d_raw_tangent, int* d_raw_translucent)
 {
 	_d_ptr_posClip = thrust::device_pointer_cast(d_raw_clip);
 	_d_ptr_tangent = thrust::device_pointer_cast(d_raw_tangent);
+	_d_ptr_translucent = thrust::device_pointer_cast(d_raw_translucent);
 }
 
 void SetDeformWinSize(int w, int h)
@@ -1250,4 +1218,124 @@ thrust::host_vector<float2> GetPosScreenOrig()
 
 	thrust::host_vector<float2> h_vec_screen  = d_vec_origPosScreen;
 	return h_vec_screen;
+}
+
+
+	//thrust::for_each(
+	//	thrust::make_zip_iterator(thrust::make_tuple(d_vec_posScreen.begin(), _d_vec_vertexIsFocus.begin(), _d_ptr_translucent)),
+	//	thrust::make_zip_iterator(thrust::make_tuple(d_vec_posScreen.end(), _d_vec_vertexIsFocus.end(), _d_ptr_translucent + _nv)),
+	//	functor_UpdateTranslucentVertices(
+	//		thrust::raw_pointer_cast(d_vec_ellipseSet.data()),
+	//		_h_vec_ellipseSet->size())
+	//		);
+
+struct functor_UpdateTranslucentVertices
+{
+	ellipse* ellipseSet;
+	int numEllipses;
+
+	template <typename T>
+	__device__ void operator() (T t)
+	{
+		float2 posScreen = thrust::get<0>(t);
+		bool vertexIsFocus = thrust::get<1>(t);
+		bool insideAnyBlades = false;
+		for(int j = 0; j < numEllipses; j++)
+		{
+			//ellipse e = ellipseSet[j];
+			//float2 line[2];
+			//line[0] = make_float2(e.x - e.a * cos(e.angle), e.y - e.a * sin(e.angle));
+			//line[1] = make_float2(e.x + e.a * cos(e.angle), e.y + e.a * sin(e.angle));
+			//float2 center = ProjectPoint2Line(posScreen, line[0], line[1]);
+			//float radius = radius_blade(ellipseSet[j], center);
+		//	if(length(posScreen - tmp) < ellipseSet[j].a)//inOneBlade(ellipseSet[j], 0.5/*ellipseSet[j].b*/, posScreen))
+		//	if(length(center - posScreen) < radius)
+			if(inOneEllipse(ellipseSet[j], posScreen))
+				insideAnyBlades = true;
+		}
+		if(insideAnyBlades && !vertexIsFocus)
+			thrust::get<2>(t) = 1;
+		else
+			thrust::get<2>(t) = 0;
+	}
+
+	functor_UpdateTranslucentVertices(
+		ellipse* _ellipseSet, int _numEllipses)
+	{
+		ellipseSet = _ellipseSet;
+		numEllipses = _numEllipses;
+	}
+};
+
+
+// Wrapper for the __global__ call that sets up the kernel call
+void launch_kernel(clock_t t0)//, unsigned int mesh_width, unsigned int mesh_height, float time)
+{
+//	clock_t t0;
+//#if (TEST_PERFORMANCE == 2)
+////	t0 = clock();
+//#endif
+	_d_vec_prePos = _d_vec_pos;
+	float4* d_raw_ptr_pos = thrust::raw_pointer_cast(_d_vec_pos.data());
+
+    // execute the kernel
+    dim3 block(256, 1, 1);
+    dim3 grid(ceil((float)_nv / block.x), 1, 1);
+
+	thrust::for_each(
+		thrust::make_zip_iterator(thrust::make_tuple(counting_zero, _d_ptr_tangent)),
+		thrust::make_zip_iterator(thrust::make_tuple(counting_zero + _nv, _d_ptr_tangent + _nv)),
+		functor_computeNormal(thrust::raw_pointer_cast(_d_vec_lineIndex.data()), d_raw_ptr_pos));
+
+	//clip coordiates of streamlines
+	thrust::transform(_d_vec_pos.begin(), _d_vec_pos.end(), _d_ptr_posClip, functor_Object2Clip());
+	thrust::transform(_d_ptr_posClip, _d_ptr_posClip + _nv, d_vec_posScreen.begin(), functor_Clip2Screen());
+
+	if(0 == _h_vec_ellipseSet->size() )
+		return;
+
+	thrust::device_vector<ellipse> d_vec_ellipseSet = *_h_vec_ellipseSet;
+	//cout<<"d_vec_ellipseSet.size():"<<d_vec_ellipseSet.size()<<endl;
+	thrust::for_each(
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_posScreen.begin(), _d_vec_vertexIsFocus.begin(), _d_ptr_translucent)),
+		thrust::make_zip_iterator(thrust::make_tuple(d_vec_posScreen.end(), _d_vec_vertexIsFocus.end(), _d_ptr_translucent + _nv)),
+		functor_UpdateTranslucentVertices(
+			thrust::raw_pointer_cast(d_vec_ellipseSet.data()),
+			d_vec_ellipseSet.size())
+			);
+
+#if (TEST_PERFORMANCE == 2)
+	PrintElapsedTime(t0, "prepare data(before deformation kernel)");
+#endif	
+	if(*_deformOn)
+	{
+#if (TEST_PERFORMANCE == 3)
+	    cudaEvent_t start, stop;
+		float time;
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+		cudaEventRecord(start, 0);
+#endif
+		//cout<<"_d_vec_lineIndex.back() before kernel:"<<_d_vec_lineIndex.back()<<endl;
+   		kernel_convex<<< grid, block>>>(d_raw_ptr_pos, thrust::raw_pointer_cast(_d_ptr_posClip), 
+					thrust::raw_pointer_cast(d_vec_posScreen.data()), thrust::raw_pointer_cast(_d_vec_prePos.data()), 
+					thrust::raw_pointer_cast(_d_vec_origPos.data()), thrust::raw_pointer_cast(_d_vec_lineIndex.data()),
+					thrust::raw_pointer_cast(_d_vec_vertexIsFocus.data()),
+					_nv,
+					thrust::raw_pointer_cast(d_vec_ellipseSet.data()), 
+					thrust::raw_pointer_cast(d_vec_hullSet.data()), 
+					_h_vec_ellipseSet->size(),
+					*_deformMode,
+					_para);
+		 
+#if (TEST_PERFORMANCE == 3)
+		cudaEventRecord(stop, 0);
+		cudaEventSynchronize(stop);
+
+		cudaEventElapsedTime(&time, start, stop);
+		printf("%f\tms to %s\n", time, "run deformation kernel");
+#endif
+		check_cuda_errors(__FILE__, __LINE__);
+	}
 }

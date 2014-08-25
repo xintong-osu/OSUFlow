@@ -56,6 +56,7 @@ VECTOR2 _dragStartPos;
 VECTOR2 _dragPrevPos;
 //VECTOR2 _dragCurrentPosLine;
 int method_type = 0;
+int visualMode_type = 0;
 int shapeModelRadioOption = 0;
 int _showCubeGCB = 1;
 
@@ -75,6 +76,7 @@ enum
 	METHOD_TYPE_ID,
 	SHAPE_MODEL_ID,
 	SHOW_CUBE_ID,
+	VISUALIZATION_MODE_ID,
 	//LENS_ID,
 	//LOCATION_ID,
 };
@@ -698,7 +700,21 @@ void control_cb( int control )
 			cLineRenderer.SetShowCube(_showCubeGCB);
 			break;
 		}
+	case VISUALIZATION_MODE_ID:
+		{
+			switch(visualMode_type)
+			{
+			case 0:
+				cLineRenderer.getDeformLine()->SetVisualMode(VISUAL_MODE::DEFORM);
+				break;
+			case 1:
+				cLineRenderer.getDeformLine()->SetVisualMode(VISUAL_MODE::TRANSP);
+				break;
+			}
+			break;
+		}
 	}
+
 
 }
 
@@ -782,7 +798,11 @@ main(int argc, char* argv[])
 	GLUI *glui = GLUI_Master.create_glui_subwindow(deformWindowId, GLUI_SUBWINDOW_TOP);
 
 	new GLUI_Button(glui, "Redo Deform", REDO_DEFORM_ID, control_cb );
-	//new GLUI_Button(glui, "Lens", LENS_ID, control_cb );
+	
+	GLUI_Panel *visualMode_panel = new GLUI_Panel( glui, "Visualization Mode" );
+	GLUI_RadioGroup  *radioVisualMode = new GLUI_RadioGroup(visualMode_panel, &visualMode_type, VISUALIZATION_MODE_ID, control_cb);;
+	new GLUI_RadioButton( radioVisualMode, "Deformation" );
+	new GLUI_RadioButton( radioVisualMode, "Transparency" );
 	
 	new GLUI_Column( glui, false );
 	GLUI_Panel *method_panel = new GLUI_Panel( glui, "Method" );
