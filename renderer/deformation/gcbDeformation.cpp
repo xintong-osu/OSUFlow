@@ -63,10 +63,13 @@ int _showCubeGCB = 1;
 set<int> _deviceId;
 map<int, vector<VECTOR2>> _touchCoords;
 
+bool firstTime = true;
+
 enum
 {
 	REDO_DEFORM_ID,
 	CUT_LINE_ID,
+	DRAW_ELLIPSE_ID,
 	X_INCREASE_ID,
 	X_DECREASE_ID,
 	Y_INCREASE_ID,
@@ -269,18 +272,23 @@ void _MotionFunc(int x, int y)
 {
 	if(_touchCoords.size() > 1)		//multitouch
 		return;
-	if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::MOVE_LENS)
+
+	switch(cLineRenderer.getDeformLine()->GetInteractMode())
+	{
+	case INTERACT_MODE::MOVE_LENS:
 		cLineRenderer.getDeformLine()->MoveLensCenterOnScreen(x - _dragPrevPos[0], y - _dragPrevPos[1]);
-	else if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::DRAG_LENS_EDGE)
+		break;
+	case INTERACT_MODE::DRAG_LENS_EDGE:
 		cLineRenderer.getDeformLine()->MoveLensEndPtOnScreen(x, y);
-
-	_dragPrevPos = VECTOR2(x, y);
-
-	if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::CUT_LINE)
+		break;
+	case INTERACT_MODE::CUT_LINE:
 		cLineRenderer.SetCutLineCoords(VECTOR2(x, y), _dragStartPos);
-
-	//if(button==GLUT_RIGHT_BUTTON)
-	//cLineRenderer.dragTo(x, y);
+		break;
+	case INTERACT_MODE::DRAW_ELLIPSE:
+		cLineRenderer.getDeformLine()->AddDrawPoints(x, y);
+		break;
+	}
+	_dragPrevPos = VECTOR2(x, y);
 }
 
 void _MouseFunc(int button, int state, int x, int y)
@@ -300,24 +308,39 @@ void _MouseFunc(int button, int state, int x, int y)
 			SetDisableTransformation(false);
 		}
 	}
+	else if(cLineRenderer.getDeformLine()->GetInteractMode() == INTERACT_MODE::DRAW_ELLIPSE)
+	{
+		if(state==GLUT_UP)
+		{
+			cLineRenderer.getDeformLine()->DrawEllipse(false);
+			SetDisableTransformation(false);
+		}
+	}
 	else if(cLineRenderer.getDeformLine()->GetSourceMode() == SOURCE_MODE::MODE_LENS)
 	{
 		if(state==GLUT_DOWN)
 		{
 			_dragStartPos = VECTOR2(x, y);
 			cLineRenderer.SetDeformOn(false);
+
 			if(cLineRenderer.getDeformLine()->InsideFirstEllipse(x, y))
 			{
-				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::MOVE_LENS);
 				SetDisableTransformation(true);
-			}
-			else if(cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
-			{
-				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_EDGE);
-				SetDisableTransformation(true);
+				if(cLineRenderer.getDeformLine()->AroundLensCenter(x, y))
+				{
+					cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::MOVE_LENS);
+				}
+				else if(cLineRenderer.getDeformLine()->OnEllipseEndPoint(x, y))
+				{
+					cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_EDGE);
+					//SetDisableTransformation(true);
+				}
+				//else
+				//	cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::TRANSFORMATION);
 			}
 			else
-				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::TRANSFORMATION);
+				SetDisableTransformation(false);
+
 		}
 		else if(state == GLUT_UP)
 		{
@@ -379,44 +402,72 @@ void _TimerFunc(int value)
 	glutTimerFunc(REFRESH_DELAY, _TimerFunc,0);
 }
 
-void _MultiMotionFunc(int id, int x, int y, GESTURE g, map<int, vector<VECTOR2>> touchCoords)
+void _MultiMotionFunc(int id, int x, int y, float g, map<int, vector<VECTOR2>> touchCoords)
 {
 	vector<VECTOR2> fingerPos;
+	vector<int> fingerCnts;
 	for (map<int, vector<VECTOR2>>::iterator it=touchCoords.begin(); it!=touchCoords.end(); ++it)
 	{
 		if(0 == it->second.size() )	//because it can be e
 			return;
 		fingerPos.push_back(it->second.back());
+		fingerCnts.push_back(it->second.size());
 	}
 
 	if(2 == touchCoords.size())
 	{
 		VECTOR2 finger1 = fingerPos[0];//touchCoords.begin()->second.back();
 		VECTOR2 finger2 = fingerPos[1];//touchCoords.back().second.back();
-		if(cLineRenderer.getDeformLine()->OnEllipseTwoEndPoints(finger1[0], finger1[1], finger2[0], finger2[1]))
+		
+		if(INTERACT_MODE::CUT_LINE != cLineRenderer.getDeformLine()->GetInteractMode())		//the first points
 		{
-			SetDisableTransformation(true);
-			cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_TWO_ENDS);
+			if(cLineRenderer.getDeformLine()->OnEllipseTwoEndPoints(finger1[0], finger1[1], finger2[0], finger2[1]))
+			{
+				SetDisableTransformation(true);
+				cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::DRAG_LENS_TWO_ENDS);
+			}
+			firstTime = false;
+		}
+
+		//	cout<<"id:\t"<<id<<endl;
+		switch(cLineRenderer.getDeformLine()->GetInteractMode())
+		{
+		case INTERACT_MODE::CUT_LINE:
+			cLineRenderer.SetCutLineCoords(finger1, finger2);
+			break;
+		case INTERACT_MODE::DRAG_LENS_TWO_ENDS:
 			cLineRenderer.getDeformLine()->MoveLensTwoEndPtOnScreen(finger1[0], finger1[1], finger2[0], finger2[1]);
+			break;
+		default:
+			{
+			//	cout<<"g:"<<g<<endl;
+				if(abs(g) > 0.01)
+					cLineRenderer.getDeformLine()->ChangeLensDepth(g * 0.1);
+				break;
+			}
 		}
 	}
+	else
+		firstTime = true;
 
 	_touchCoords = touchCoords;
 //	cout<<"id:\t"<<id<<endl;
 //	_touchCoords.insert(id, );
 	//SetTouchStatus(_touchCoords.size() > 1 );
 	//put a timer here to make it faster;
-	switch(g)
-	{
-	case GESTURE::SPAN:
-		cLineRenderer.getDeformLine()->ChangeLensDepth(1);
-		break;
-	case GESTURE::SQUEEZE:
-		cLineRenderer.getDeformLine()->ChangeLensDepth(-1);
-		break;
-	case GESTURE::NO_GESTURE:
-		break;
-	}
+	//switch(g)
+	//{
+	//case GESTURE::SPAN:
+	//	cout<<"increase depth..."<<endl;
+	//	cLineRenderer.getDeformLine()->ChangeLensDepth(1);
+	//	break;
+	//case GESTURE::SQUEEZE:
+	//	cout<<"decrease depth..."<<endl;
+	//	cLineRenderer.getDeformLine()->ChangeLensDepth(-1);
+	//	break;
+	//case GESTURE::NO_GESTURE:
+	//	break;
+	//}
 
 
 	//
@@ -458,7 +509,7 @@ void _MultiMotionFunc(int id, int x, int y, GESTURE g, map<int, vector<VECTOR2>>
 void _MultiEntryFunc(int id, int mode, map<int, vector<VECTOR2>> touchCoords)
 {
 	_touchCoords = touchCoords;
-	cout<<"touchCoords.size():"<<touchCoords.size()<<endl;
+//	cout<<"touchCoords.size():"<<touchCoords.size()<<endl;
 
 	//if(2 == touchCoords.size() )
 	//	cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::);
@@ -608,9 +659,17 @@ void control_cb( int control )
 		}
 	case CUT_LINE_ID:
 		{
+		//	cLineRenderer.getDeformLine()->SetLensAxis(VECTOR2(0, 0), VECTOR2(0, 0));
 			cLineRenderer.SetNewCutLine(true);
+			cLineRenderer.getDeformLine()->RedoDeformation();
 			SetDisableTransformation(true);
 			break;
+		}
+	case DRAW_ELLIPSE_ID:
+		{
+			cLineRenderer.getDeformLine()->DrawEllipse(true);
+			cLineRenderer.getDeformLine()->RedoDeformation();
+			SetDisableTransformation(true);
 		}
 	case X_INCREASE_ID:
 		{
@@ -813,7 +872,8 @@ main(int argc, char* argv[])
 
 	new GLUI_Column( glui, false );
 	GLUI_Panel *drawLens_panel = new GLUI_Panel( glui, "Draw Lens" );
-	new GLUI_Button(drawLens_panel, "Line", CUT_LINE_ID, control_cb );
+	new GLUI_Button(drawLens_panel, "Draw Line", CUT_LINE_ID, control_cb );
+	new GLUI_Button(drawLens_panel, "Draw Ellipse", DRAW_ELLIPSE_ID, control_cb );
 
 	new GLUI_Column( glui, false );
 	GLUI_Panel *shapeModel_panel = new GLUI_Panel( glui, "Focus Region Shape" );

@@ -147,11 +147,11 @@ enum EGcbParameterName{
 	GCB_ZOOM_CAMERA_SPEED, 
 };
 
-enum GESTURE{
-	SPAN,
-	SQUEEZE,
-	NO_GESTURE,
-};
+//enum GESTURE{
+//	SPAN,
+//	SQUEEZE,
+//	NO_GESTURE,
+//};
 void gcbSetFloating(EGcbParameterName eName, float fValue);
 // ADD-BY-LEETEN 10/01/2010-END
 
@@ -188,7 +188,7 @@ void gcbMouseFunc(void (*_MyMouseFunc)(int, int, int, int));
 void gcbMotionFunc(void (*_MyMotionFunc)(int, int));
 void gcbPassiveMotionFunc(void (*_PassiveMyMotionFunc)(int, int));
 void gcbMouseWheelFunc(void (*_MyMouseWheelFunc)(int, int, int, int));
-void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE, map<int, vector<VECTOR2>>));
+void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, float, map<int, vector<VECTOR2>>));
 //void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE, map<int, vector<VECTOR2>>));
 void gcbMultiEntryFunc(void (*_MyMultiEntryFunc)(int, int, map<int, vector<VECTOR2>>));
 void SetDisableTransformation(bool b);

@@ -23,6 +23,7 @@ using namespace std;
 double dRotateCameraSpeed = 0.1;
 double dRotateModelSpeed = 0.01;
 double dZoomModelSpeed = 0.001;
+const int _updateRate = 33;
 // ADD-BY-LEETEN 10/01/2010-END
 
 typedef GLdouble TMatrix[16];
@@ -32,7 +33,7 @@ TMatrix tProjectionMatrix;
 
 int piViewport[4];
 map<int, vector<VECTOR2>> _touchCoordsGCB;
-GESTURE _currentGesture;
+float _currentGesture;
 
 // ADD-BY-LEETEN 03/31/2008-BEGIN
 // the different between the origin of the model and the cursor the on screen.
@@ -55,7 +56,7 @@ void (*_MouseFunc)(int button, int state, int x, int y);
 void (*_MotionFunc)(int x, int y);
 void (*_PassiveMotionFunc)(int x, int y);
 void (*_MouseWheelFunc)( int wheel, int direction, int x, int y );
-void (*_MultiMotionFunc)(int id, int x, int y, GESTURE g, map<int, vector<VECTOR2>>);
+void (*_MultiMotionFunc)(int id, int x, int y, float g, map<int, vector<VECTOR2>>);
 void (*_MultiEntryFunc)(int id, int mode, map<int, vector<VECTOR2>> touchCoords);
 //ADD-BY-TONG 02/13/2013-END
 
@@ -63,11 +64,18 @@ void (*_MultiEntryFunc)(int id, int mode, map<int, vector<VECTOR2>> touchCoords)
 // The callbacks, functions and vairable for the mouse interfaces.
 // The reference point of every kind of motion is the point where the mouse is just clicked.
 static int iBeginX, iBeginY; // the 2D coordinate of the cursor
+//static int fingerDistBegin, fingerDistCurrent;
 static int iCursorX, iCursorY; // the 2D coordinate of the cursor
 static GLenum eMouseButton = 0;
 static GLenum eModifier = 0;
 static bool bMoving = false;
 static bool _disableTransformation = false;
+
+#include <ctime>
+
+std::clock_t start, start2;
+double duration, duration2;
+
 
 void SetDisableTransformation(bool b)
 {
@@ -323,7 +331,7 @@ _RotateModel()
 }
 
 void
-_ZoomModel()
+_ZoomModelMouse()
 {
 	gluProject(
 		tModelMatrix[12], tModelMatrix[13], tModelMatrix[14], 
@@ -334,6 +342,35 @@ _ZoomModel()
 		// pdOldCoord[2] -= 0.01 * ((double)(iCursorY - iBeginY)/(double)piViewport[3]);
 	// TO:
 	pdOldCoord[2] -= dZoomModelSpeed * ((double)(iCursorY - iBeginY)/(double)piViewport[3]);
+	//pdOldCoord[2] -= dZoomModelSpeed * ((double)(4 * _currentGesture)/(double)piViewport[3]);
+	
+	// MOD-BY-LEETEN 10/01/2010-END
+
+	gluUnProject(
+		pdOldCoord[0], pdOldCoord[1], pdOldCoord[2],
+		tViewMatrix, tProjectionMatrix, piViewport, 
+		&pdNewCoord[0], &pdNewCoord[1], &pdNewCoord[2]);
+
+	for(int i=0; i<3; i++)
+		tModelMatrix[12 + i] = pdNewCoord[i];
+
+	glutPostRedisplay();
+}
+
+void
+_ZoomModel()
+{
+	gluProject(
+		tModelMatrix[12], tModelMatrix[13], tModelMatrix[14], 
+		tViewMatrix, tProjectionMatrix, piViewport, 
+		&pdOldCoord[0], &pdOldCoord[1], &pdOldCoord[2]);
+
+	// MOD-BY-LEETEN 10/01/2010-FROM:
+		// pdOldCoord[2] -= 0.01 * ((double)(iCursorY - iBeginY)/(double)piViewport[3]);
+	// TO:
+	//pdOldCoord[2] -= dZoomModelSpeed * ((double)(iCursorY - iBeginY)/(double)piViewport[3]);
+	pdOldCoord[2] -= dZoomModelSpeed * ((double)(4 * _currentGesture)/(double)piViewport[3]);
+	
 	// MOD-BY-LEETEN 10/01/2010-END
 
 	gluUnProject(
@@ -602,7 +639,9 @@ void
 _MultiMotionCB(int id, int x, int y)
 {
 	y = piViewport[3] - y;
-	_currentGesture = GESTURE::NO_GESTURE;
+	//iCursorX = x;
+	//iCursorY = y;
+	_currentGesture = 0;//GESTURE::NO_GESTURE;
 	if(_touchCoordsGCB.end() == _touchCoordsGCB.find(id))	{
 		vector<VECTOR2> pts;
 		pts.push_back(VECTOR2(x, y));
@@ -610,7 +649,7 @@ _MultiMotionCB(int id, int x, int y)
 		//cout<<"_touchCoordsGCB.size():"<<_touchCoordsGCB.size()<<endl;
 	} else {
 		_touchCoordsGCB.find(id)->second.push_back(VECTOR2(x, y));
-		if(_touchCoordsGCB.size() > 1 && ( 0 == _touchCoordsGCB.find(id)->second.size() % 16))	{
+		if(_touchCoordsGCB.size() > 1/* && ( 0 == _touchCoordsGCB.find(id)->second.size() % 4)*/)	{
 			map<int, vector<VECTOR2>>::iterator it = _touchCoordsGCB.begin();
 			map<int, vector<VECTOR2>>::iterator it2 = it;
 			it2++;
@@ -620,13 +659,24 @@ _MultiMotionCB(int id, int x, int y)
 				float distLast = (it->second.back() - it2->second.back()).GetMag();
 				float distEarlier = (it->second.at(it->second.size() - iN) - it2->second.at(it2->second.size() - iN)).GetMag();
 				float diff = distLast - distEarlier;
-				if( diff > 2)
-					_currentGesture = GESTURE::SPAN;
-				else if(diff < -2)
-					_currentGesture = GESTURE::SQUEEZE;
+				//if( diff > 2)
+				//	_currentGesture = GESTURE::SPAN;
+				//else if(diff < -2)
+				//	_currentGesture = GESTURE::SQUEEZE;
+				_currentGesture = diff;
 			}
+			//fingerDistBegin = ;
 		}
 	}
+
+
+	//if the following lines are put in the beginning, it is possible that we always skip certain frames.
+	duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000;
+	if(duration < _updateRate)
+		return;
+	else
+		start = std::clock();	
+
 	//cout<<"_touchCoordsGCB.size():"<<_touchCoordsGCB.size()<<endl;
 	if(_MultiMotionFunc)
 		_MultiMotionFunc(id, x, y, _currentGesture, _touchCoordsGCB);
@@ -660,11 +710,19 @@ _MotionCB(int x, int y)
 {
 	//cout<<"_touchModeOn...:  "<<_touchModeOn<<endl;
 
+
 		// flip the y coordinate
 	y = piViewport[3] - y;
 	iCursorX = x;
 	iCursorY = y;
 	//ADD-BY-TONG 02/13/2013-BEGIN
+
+	duration2 = ( std::clock() - start2 ) / (double) CLOCKS_PER_SEC * 1000;
+	if(duration2 < _updateRate)
+		return;
+	else
+		start2 = std::clock();
+
 	if( _MotionFunc )
 		_MotionFunc(x, y);
 	//ADD-BY-TONG 02/13/2013-END
@@ -714,16 +772,35 @@ void
 	//cout<<"_disableTransformation:"<<_disableTransformation<<endl;
 	if(bMoving && !_disableTransformation)
 	{
-		if(2 == _touchCoordsGCB.size() && GESTURE::NO_GESTURE == _currentGesture)		//if touch screen
+		if(2 == _touchCoordsGCB.size() /*&& GESTURE::NO_GESTURE== _currentGesture*/)		//if touch screen
 		{
-			_RotateModel();
+			if(abs(_currentGesture) > 8)
+			{
+			//	cout<<"zoom..."<<endl;
+				_ZoomModel();
+				//the following has to be done because after every zoom, 
+				//we have to update the initial conditions for "pan"
+				double pdCurrentModelCenterOnScreen[3];
+				gluProject(
+					tModelMatrix[12], tModelMatrix[13], tModelMatrix[14], 
+					tViewMatrix, tProjectionMatrix, piViewport, 
+					&pdCurrentModelCenterOnScreen[0], &pdCurrentModelCenterOnScreen[1], &pdCurrentModelCenterOnScreen[2]);
+
+				dXDiffOnScreen = pdCurrentModelCenterOnScreen[0] - (double)iCursorX;
+				dYDiffOnScreen = pdCurrentModelCenterOnScreen[1] - (double)iCursorY;
+			}
+			else
+			{
+			//	cout<<"pan..."<<endl;
+				_PanModel();
+			}
+			//_RotateModel();
 			glutPostRedisplay();	
 		}
-		else if(3 == _touchCoordsGCB.size())
-		{
-			_ZoomModel();
-			glutPostRedisplay();	
-		}
+		//else if(3 == _touchCoordsGCB.size())
+		//{
+		//	//glutPostRedisplay();	
+		//}
 		else if(_touchCoordsGCB.size() > 3)
 		{
 		}
@@ -735,17 +812,20 @@ void
 				switch( eModifier & ~GLUT_ACTIVE_ALT )
 				{
 				case 0:
-					_PanModel();
-					glutPostRedisplay();	
-					break;
-
-				case GLUT_ACTIVE_CTRL: // manipulate the object
+					//cout<<"rotate..."<<endl;
 					_RotateModel();
 					glutPostRedisplay();	
 					break;
 
+				case GLUT_ACTIVE_CTRL: // manipulate the object
+					//_RotateModel();
+					_PanModel();
+					glutPostRedisplay();	
+					break;
+
 				case GLUT_ACTIVE_SHIFT:
-					_ZoomModel();
+					//_ZoomModel();
+					_ZoomModelMouse();
 					glutPostRedisplay();	
 					break;
 				} // switch(eModifier)
@@ -843,7 +923,7 @@ gcbMouseWheelFunc(void (*_MyMouseWheelFunc)(int, int, int, int))
 
 //ADD-BY-TONG 02/13/2013-END
 
-void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, GESTURE, map<int, vector<VECTOR2>>))
+void gcbMultiMotionFunc(void (*_MyMultiMotionFunc)(int, int, int, float, map<int, vector<VECTOR2>>))
 {
 	_MultiMotionFunc = _MyMultiMotionFunc;
 }

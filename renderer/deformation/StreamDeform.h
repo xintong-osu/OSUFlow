@@ -367,6 +367,7 @@ class StreamDeform
 	bool _deformOn;	//turn on/off deformation
 	bool _autoDeformMode;
 	char *_filename_dist;
+	vector<VECTOR2> _drawnPoints;
 
 	void ClusterStreamByBoundingBox(vector<int> streamIndices, vector<vector<int>> &streamGroups);
 	vector<vector<VECTOR4>> Groups2Hull(vector<thrust::host_vector<int>> streamGroups);
@@ -457,14 +458,16 @@ public:
 
 	void MovePickBlock(DIRECTION dir);
 
-	void ChangeLensDepth(int m);
+	void ChangeLensDepth(float m);
 	//void ChangeLensOnScreen(float x, float y);
 	void MoveLensCenterOnScreen(float dx, float dy);
+	void UpdateLensCenterFromScreen(float x, float y);
 	void MoveLensEndPtOnScreen(float x, float y);
 
 	void MoveLensTwoEndPtOnScreen(float x1, float y1, float x2, float y2);
 
 	float* GetLensCenter();
+	float GetLensSize();
 	SOURCE_MODE GetSourceMode();
 	VISUAL_MODE GetVisualMode();
 	void SetVisualMode(VISUAL_MODE m);
@@ -476,6 +479,7 @@ public:
 	void SetLensAxis(VECTOR2 startPoint, VECTOR2 endPoint);
 	//void ChangeLensRatio(int m);
 	bool InsideFirstEllipse(float x, float y);
+	bool AroundLensCenter(float x, float y);
 	bool OnEllipseEndPoint(float x, float y);
 	bool OnEllipseTwoEndPoints(float x1, float y1,  float x2, float y2);
 	vector<VECTOR2> GetEllipseEndPoints();
@@ -503,5 +507,9 @@ public:
 	//void SetCutLine(VECTOR2 startPoint, VECTOR2 endPoint);
 	void FinishDrag();
 	void UpdateLensScreen();
+	void DrawEllipse(bool b);
+	void AddDrawPoints(float x, float y);
+
+	vector<VECTOR2> GetDrawnPoints();
 };
 

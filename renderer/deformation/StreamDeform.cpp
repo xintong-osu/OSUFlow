@@ -15,11 +15,25 @@
 
 
 
-#define NUM_BUNDLE 36
+#define NUM_BUNDLE 49
 
 
 #define SAMPLE_NUM 200
 #define SAMPLE_RATE 5
+
+inline Point_2 VECTOR2toPoints2(VECTOR2 p)
+{
+	return Point_2(p[0], p[1]);
+}
+
+inline vector<Point_2> VECTOR2toPoints2(vector<VECTOR2> p)
+{
+	vector<Point_2> ret;
+	for(int i = 0; i < p.size(); i++)	{
+		ret.push_back(VECTOR2toPoints2(p[i]));
+	}
+	return ret;
+}
 
 template <typename T>
 inline bool invertMatrix(T m[16], T invOut[16])
@@ -322,6 +336,7 @@ void StreamDeform::SetDeformMode(DEFORM_MODE mode)
 void StreamDeform::SetInteractMode(INTERACT_MODE mode)
 {
 	_interactMode = mode;
+//	cout<<"interactive mode changed.."<<endl;
 }
 
 INTERACT_MODE StreamDeform::GetInteractMode()
@@ -529,8 +544,18 @@ bool StreamDeform::InsideFirstEllipse(float x, float y)
 	t = t - _focusEllipseSet.front().angle;	
 	float radius = _focusEllipseSet.front().a * _focusEllipseSet.front().b 
 		/ sqrt(pow(_focusEllipseSet.front().b * cos(t),2) + pow(_focusEllipseSet.front().a * sin(t),2));
-	return dist2Center < 0.8 * radius;
+	return dist2Center < 1.5 * radius;
 }
+
+bool StreamDeform::AroundLensCenter(float x, float y)
+{
+	VECTOR2 lens_center_screen = VECTOR2(_focusEllipseSet.front().x, _focusEllipseSet.front().y);
+	float dist2Center = (VECTOR2(x, y) - lens_center_screen).GetMag();	//current distance to the center 
+	
+	float radius = min(_focusEllipseSet.front().a, _focusEllipseSet.front().b ) * 0.5;
+	return dist2Center < radius;
+}
+
 
 vector<VECTOR2> StreamDeform::GetEllipseEndPoints()
 {
@@ -552,7 +577,9 @@ inline bool PointsClose(VECTOR2 v1, VECTOR2 v2)
 
 bool StreamDeform::OnEllipseTwoEndPoints(float x1, float y1,  float x2, float y2)
 {
-	bool onEllipseEndPt = true;
+	if(0 == _focusEllipseSet.size())
+		return false;
+	bool onEllipseEndPt = false;
 	vector<VECTOR2> endPoints = GetEllipseEndPoints();
 	if(		(PointsClose(VECTOR2(x1, y1), endPoints[0]) && PointsClose(VECTOR2(x2, y2), endPoints[2]))
 		||	(PointsClose(VECTOR2(x2, y2), endPoints[0]) && PointsClose(VECTOR2(x1, y1), endPoints[2])))
@@ -589,23 +616,66 @@ bool StreamDeform::OnEllipseEndPoint(float x, float y)
 	return onEllipseEndPt;
 }
 
-void StreamDeform::ChangeLensDepth(int m)
+void StreamDeform::ChangeLensDepth(float m)
 {
 	//float step = 0.0002;
 
 	//should be Object2Camera, but not Object2Clip
 	//cout<<"_lensChangeStep:"<<_lensChangeStep<<endl;
 	VECTOR4 lens_center_clip = Object2Clip(_lensCenterObject, _ModelViewMatrix, _ProjectionMatrix);
-	if(m > 0)
-		lens_center_clip[2] += _lensChangeStep;
-	else
-		lens_center_clip[2] -= _lensChangeStep;
+	//if(m > 0)
+		lens_center_clip[2] += _lensChangeStep * m;
+	/*else
+		lens_center_clip[2] -= _lensChangeStep;*/
 	_lensCenterObject = Clip2Object(lens_center_clip, _invModelViewMatrixf, _invProjectionMatrixf);
 	//SetEllipse(&_focusEllipseSet);
 	//RestoreStreamConnectivity();
 	//GetConnectivity(_primitiveOffsets, _primitiveLengths);
 	ProcessAllStream();
 	//GetConnectivity(_primitiveOffsets, _primitiveLengths);
+}
+
+void StreamDeform::UpdateLensCenterFromScreen(float x, float y)
+{
+	VECTOR4 lens_center_clip = Object2Clip(_lensCenterObject, _ModelViewMatrix, _ProjectionMatrix);
+
+	//VECTOR2 lensCenterScreen = VECTOR2(x, y);//Clip2Screen(lens_center_clip, winWidth, winHeight);
+
+	//lensCenterScreen[0] += dx;
+	//lensCenterScreen[1] += dy;
+
+	//_focusEllipseSet.front().x = x;
+	//_focusEllipseSet.front().y = lensCenterScreen[1];
+
+	VECTOR2 lensCenterClipXY = Screen2Clip(VECTOR2(x, y), winWidth, winHeight);
+
+	VECTOR4 lensCenterClipNew(lensCenterClipXY[0], lensCenterClipXY[1], lens_center_clip[2], 1);
+
+	_lensCenterObject = Clip2Object(lensCenterClipNew, _invModelViewMatrixf, _invProjectionMatrixf);
+}
+
+void StreamDeform::DrawEllipse(bool b)
+{
+	if(b)	{
+		_deformMode = DEFORM_MODE::MODE_ELLIPSE;
+		_sourceMode = SOURCE_MODE::MODE_LENS;
+		_focusEllipseSet.clear();
+		ellipse e(0, 0, 0.1,0.1, 0);
+		_focusEllipseSet.push_back(e);
+		_drawnPoints.clear();
+		_interactMode = INTERACT_MODE::DRAW_ELLIPSE;
+	}	else	{
+		_focusEllipseSet.clear();
+		_focusEllipseSet.push_back(GenEllipse(VECTOR2toPoints2(_drawnPoints)));
+		UpdateLensCenterFromScreen(_focusEllipseSet.front().x, _focusEllipseSet.front().y);
+		_interactMode = INTERACT_MODE::TRANSFORMATION;
+		ProcessAllStream();
+	}
+}
+
+void StreamDeform::AddDrawPoints(float x, float y)
+{
+	_drawnPoints.push_back(VECTOR2(x, y));
 }
 
 void StreamDeform::MoveLensCenterOnScreen(float dx, float dy)
@@ -664,7 +734,7 @@ void StreamDeform::MoveLensEndPtOnScreen(float x, float y)
 	}
 	if(angle < 0)
 		angle += M_PI;
-	_focusEllipseSet.front().angle = angle ;
+//	_focusEllipseSet.front().angle = angle ;
 	//ProcessAllStream();
 }
 
@@ -742,6 +812,11 @@ void StreamDeform::ChangeLensChangeStep(float m)
 float* StreamDeform::GetLensCenter()
 {
 	return &_lensCenterObject[0];
+}
+
+float StreamDeform::GetLensSize()
+{
+	return min(_focusEllipseSet.front().a, _focusEllipseSet.front().b);
 }
 
 void StreamDeform::GenHullEllipse()
@@ -1141,7 +1216,7 @@ void StreamDeform::SetLensAxis(VECTOR2 startPoint, VECTOR2 endPoint)
 	_focusEllipseSet.push_back(ellLens);
 //	SetEllipse(&_focusEllipseSet);
 
-	RestoreAllStream();
+	//RestoreAllStream();
 	ProcessAllStream();
 }
 
@@ -1677,3 +1752,8 @@ int* StreamDeform::GetStreamBundleIndex()
 //	//_cutLine[0] = startPoint;
 //	//_cutLine[1] = endPoint;
 //}
+
+vector<VECTOR2> StreamDeform::GetDrawnPoints()
+{
+	return _drawnPoints;
+}

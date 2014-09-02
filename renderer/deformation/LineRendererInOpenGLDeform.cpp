@@ -414,6 +414,31 @@ void Draw3DArray(vector<VECTOR4> v)
 	}
 }
 
+void Draw3DSphere(float v[3], float radius)
+{
+	glPushMatrix();
+
+/*	glColor3f( 1, 1, 1);
+*/
+//	glBegin( GL_LINE_LOOP );/// don't workglPointSize( 0.0 );
+	glLineWidth( 1.0 );
+	glTranslatef(v[0], v[1], v[2]);
+	GLUquadricObj *quadric;
+	quadric = gluNewQuadric();
+
+	gluQuadricDrawStyle(quadric, GLU_LINE );
+	gluSphere( quadric, radius , 18 , 9);
+
+	gluDeleteQuadric(quadric); 
+	//glEndList();
+
+	//glEnd();
+
+
+	glPopMatrix();
+
+}
+
 void Draw3DPoint(float* v)
 {
 	// activate and specify pointer to vertex array
@@ -431,6 +456,14 @@ inline void Draw2DLine(VECTOR2 startPoint, VECTOR2 endPoint)
 	glBegin(GL_LINES);
 		glVertex2f(startPoint[0], startPoint[1]);
 		glVertex2f(endPoint[0], endPoint[1]);
+	glEnd();
+}
+
+inline void Draw2DPolyline(vector<VECTOR2> pts)
+{
+	glBegin(GL_LINE_STRIP);
+	for(int i = 0; i < pts.size(); i++)
+		glVertex2f(pts[i][0], pts[i][1]);
 	glEnd();
 }
 
@@ -681,11 +714,13 @@ CLineRendererInOpenGLDeform::_Draw()
 			Draw3DCube(cubeMin, cubeMax);
 		}
 
-	if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LENS)
-	{
-		glColor4f(0.0f, 1.0f, 0.145f, 0.5f);
-		Draw3DPoint(_deformLine.GetLensCenter());
-	}
+	//if(_deformLine.GetSourceMode() == SOURCE_MODE::MODE_LENS)
+	//{
+	//	glColor4f(0.0f, 1.0f, 0.145f, 1.0f);
+	//	//glPointSize(4);
+	//	//Draw3DPoint(_deformLine.GetLensCenter());
+	//	Draw3DSphere(_deformLine.GetLensCenter(), /*_deformLine.GetLensSize()*/ 4);
+	//}
 
 	glPopMatrix();
 
@@ -725,10 +760,10 @@ CLineRendererInOpenGLDeform::_Draw()
 		if(ellipseSet.size() > 0)
 		{
 			//cout<<"**3"<<endl;
-			DrawCircle(GetEllipsePoint(ellipseSet.front(), 0), 4);
-			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 0.5), 4);
-			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI), 4);
-			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 1.5), 4);
+			DrawCircle(GetEllipsePoint(ellipseSet.front(), 0), 8);
+			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 0.5), 8);
+			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI), 8);
+			DrawCircle(GetEllipsePoint(ellipseSet.front(), M_PI * 1.5), 8);
 			//VECTOR2 lens_center_screen = VECTOR2(ellipseSet.front().x, ellipseSet.front().y);
 			//DrawCircle(lens_center_screen, 2);
 		}
@@ -737,6 +772,11 @@ CLineRendererInOpenGLDeform::_Draw()
 	if(_deformLine.GetInteractMode() == INTERACT_MODE::CUT_LINE && 
 		!(_cutLine[0][0] == _cutLine[1][0] && _cutLine[0][0] == _cutLine[1][0]))
 		Draw2DLine(_cutLine[0], _cutLine[1]);
+	else if(_deformLine.GetInteractMode() == INTERACT_MODE::DRAW_ELLIPSE )	{
+		vector<VECTOR2> drawnPoints = _deformLine.GetDrawnPoints();
+		if(drawnPoints.size() > 0)
+			Draw2DPolyline(drawnPoints);
+	}
 
 	//restore the original 3D coordinate system
 	glMatrixMode(GL_PROJECTION);
@@ -784,15 +824,29 @@ void CLineRendererInOpenGLDeform::DrawHull(std::vector<hull_type> hull)
 	
 }
 
+//void CLineRendererInOpenGLDeform::DrawEllipse(bool b)
+//{
+//	if(b)	{
+//		_deformLine.SetInteractMode(INTERACT_MODE::DRAW_ELLIPSE);
+//	} else	{
+//		_deformLine.SetInteractMode(INTERACT_MODE::TRANSFORMATION);
+//	}
+//}
+
+
 void CLineRendererInOpenGLDeform::SetNewCutLine(bool b)
 {
 	if(b)
+	{
+		_deformLine.SetDeformMode(DEFORM_MODE::MODE_LINE);
+		_deformLine.SetSourceMode(SOURCE_MODE::MODE_LENS);
 		_deformLine.SetInteractMode(INTERACT_MODE::CUT_LINE);
+		_cutLine[0] = VECTOR2(0, 0);
+		_cutLine[1] = VECTOR2(0, 0);
+		_deformLine.SetLensAxis(_cutLine[0], _cutLine[1]);
+	}
 	else
 		_deformLine.SetInteractMode(INTERACT_MODE::TRANSFORMATION);
-
-	_cutLine[0] = VECTOR2(0, 0);
-	_cutLine[1] = VECTOR2(0, 0);
 }
 
 //bool CLineRendererInOpenGLDeform::GetNewCutLine()
@@ -889,7 +943,8 @@ void CLineRendererInOpenGLDeform::DrawLineLoop(vector<VECTOR2> contour)
 
 
 	//glBegin(GL_LINE_LOOP);
-	glPointSize(4);
+	glLineWidth(8);
+//	glPointSize(4);
 	glBegin(GL_LINE_LOOP);
 		for(int i = 0; i < contour.size(); i++)
 			glVertex2f(contour[i][0], contour[i][1]);
@@ -1081,11 +1136,14 @@ void CLineRendererInOpenGLDeform::SetCutLineCoords(VECTOR2 startPoint, VECTOR2 e
 {
 	_cutLine[0] = startPoint;
 	_cutLine[1] = endPoint;
+	_deformLine.SetLensAxis(_cutLine[0], _cutLine[1]);
 }
 
 void CLineRendererInOpenGLDeform::CutLineFinish()
 {
-	_deformLine.SetLensAxis(_cutLine[0], _cutLine[1]);
+	//_deformLine.SetLensAxis(_cutLine[0], _cutLine[1]);
+	VECTOR2 lensCenter = (_cutLine[0] + _cutLine[1]) * 0.5;
+	_deformLine.UpdateLensCenterFromScreen(lensCenter[0], lensCenter[1]);
 	SetNewCutLine(false);
 }
 

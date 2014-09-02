@@ -74,7 +74,6 @@ class CLineRendererInOpenGLDeform :
 	//OpenGL
 	void getMatrix();
 	void InitGL();
-	void DrawEllipse();
 	void DrawBlinds();
 	void DrawLineLoop(vector<VECTOR2> contour);
 	void DrawHull(std::vector<hull_type> hull);
@@ -221,6 +220,7 @@ public:
 	void PickBundle(int i);
 	void AddRemoveBundle(int i);
 	void SetNewCutLine(bool b);
+	void DrawEllipse();
 	//bool GetNewCutLine();
 	void CutLineFinish();
 	void SetCutLineCoords(VECTOR2 startPoint, VECTOR2 endPoint);

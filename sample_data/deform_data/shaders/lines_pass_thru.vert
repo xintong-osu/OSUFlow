@@ -40,7 +40,7 @@ void main()
 	vec4 kd = vec4(0.25f, 0.25f, 0.25f, 1.0f);
 	vec4 ka = vec4(0.7, 0.7, 0.7, 1.0);
 	vec4 cc;
-	const float opacity = 0.2;
+	const float opacity = 0.1;
 	if(0 == mode || 2 == mode || 4 == mode)
 	{
 		cc = vertexObjectColor;
