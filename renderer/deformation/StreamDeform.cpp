@@ -14,8 +14,9 @@
 #endif
 
 
-
-#define NUM_BUNDLE 49
+//36 is good for plume
+//49 is good for isabel
+#define NUM_BUNDLE 36
 
 
 #define SAMPLE_NUM 200

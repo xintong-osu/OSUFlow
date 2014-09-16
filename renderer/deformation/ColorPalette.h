@@ -2,7 +2,7 @@
 #define COLOR_PALETTE_H
 
 //this one is good for Isabel
-int hexColor[50] = {
+int hexColor2[50] = {
 	
 	0x668CFF,
 	0x8C66FF,
@@ -69,7 +69,7 @@ int hexColor[50] = {
 };
 
 //this one is good for Plume
-int hexColor2[38] = {
+int hexColor[38] = {
 	0x3366FF,
 	0x6633FF,
 	0xCC33FF,

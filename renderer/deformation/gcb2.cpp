@@ -369,7 +369,7 @@ _ZoomModel()
 		// pdOldCoord[2] -= 0.01 * ((double)(iCursorY - iBeginY)/(double)piViewport[3]);
 	// TO:
 	//pdOldCoord[2] -= dZoomModelSpeed * ((double)(iCursorY - iBeginY)/(double)piViewport[3]);
-	pdOldCoord[2] -= dZoomModelSpeed * ((double)(4 * _currentGesture)/(double)piViewport[3]);
+	pdOldCoord[2] -= dZoomModelSpeed * ((double)(32 * _currentGesture)/(double)piViewport[3]);
 	
 	// MOD-BY-LEETEN 10/01/2010-END
 
@@ -789,14 +789,17 @@ void
 				dXDiffOnScreen = pdCurrentModelCenterOnScreen[0] - (double)iCursorX;
 				dYDiffOnScreen = pdCurrentModelCenterOnScreen[1] - (double)iCursorY;
 			}
-			else
-			{
-			//	cout<<"pan..."<<endl;
-				_PanModel();
-			}
+			//else
+			//{
+			////	cout<<"pan..."<<endl;
+			//	_PanModel();
+			//}
 			//_RotateModel();
 			glutPostRedisplay();	
 		}
+		else if(3 == _touchCoordsGCB.size())
+			_PanModel();
+
 		//else if(3 == _touchCoordsGCB.size())
 		//{
 		//	//glutPostRedisplay();	

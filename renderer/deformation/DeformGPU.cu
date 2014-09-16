@@ -433,6 +433,7 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 
 	float radiusOuterAll[MAX_NUM_GROUP]; //including the focus and transition region
 
+	bool inAnyEllipse = false;
 	for(int ie = 0; ie < nEllipse; ie++)
 	{
 		float2 center;
@@ -447,12 +448,10 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 		else
 			center = make_float2(e.x, e.y);
 		float2 dir2Center = v_screen - center;	//current distance to the center
-		float dist2Center = length(dir2Center);	//current distance to the center 
 
 		float radius;
-		if(DEFORM_MODE::MODE_ELLIPSE == deformMode)
-			radius = 1.2 * radius_ellipse(e, dir2Center);
-		else if(DEFORM_MODE::MODE_HULL == deformMode)
+
+		if(DEFORM_MODE::MODE_HULL == deformMode)
 			radius = 1.2 * radius_hull(hullSet[ie], center, v_screen);
 		else if(DEFORM_MODE::MODE_LINE == deformMode)
 		{
@@ -460,15 +459,18 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 			//radius = 1.25 * e.b * ( tanh(- 8.0 * parallelDist / e.a + 6.0) + 1) * 0.5;
 			radius = radius_blade(e, center);
 		}
+		else//		if(DEFORM_MODE::MODE_ELLIPSE == deformMode)
+			radius = 1.2 * radius_ellipse(e, dir2Center);
 		//float transWidth = generalSize * transRatio; //size of transition region, _d_ / _r_
 		float r = 0.5;
 		radiusOuterAll[ie] = radius / r;// (radius + transWidth) ;
 		
-		if(dist2Center <= radiusOuterAll[ie] && (false == vertexIsFocus[i]))
+		float origDist2Center = length(orig_screen - center);	//original distance to the center
+		if(origDist2Center <= radiusOuterAll[ie] && (false == vertexIsFocus[i]))
 		{
-			
+			inAnyEllipse = true;
 			//force from neighboring vertices
-			if(deformMode != DEFORM_MODE::MODE_LINE)
+			if(deformMode == DEFORM_MODE::MODE_ELLIPSE)
 			{
 				if(i != 0 && i != (_nv - 1))
 				{
@@ -492,8 +494,8 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 		
 			float2 dir = normalize(dir2Center);
 
-			float origDist2Center = length(orig_screen - center);	//original distance to the center
 			float desiDist2Center = G(origDist2Center / radiusOuterAll[ie], r) * radiusOuterAll[ie];//radius + origDist2Center / (radius / transWidth + 1.0);		//distance to the center for the destination position
+			float dist2Center = length(dir2Center);	//current distance to the center 
 			float dist2Desire = desiDist2Center - dist2Center;
 			forceAll += (dir * dist2Desire);
 		}
@@ -507,26 +509,10 @@ __global__ void kernel_convex(float4* pos, float4* pos_clip, float2* pos_screen,
 		pos_clip[i].y = v.y;//ELLIPSE_CENTER.y / WIN_HEIGHT * 2.0 - 1.0;//v.y;
 		pos[i] = Clip2Object(pos_clip[i]);
 	}
-	//else	//Recover the 3D Position
-	bool case1 = (DEFORM_MODE::MODE_LINE == deformMode && !inAnyGroupLine(ellipseSet, radiusOuterAll, nEllipse, origPos[i]));
-	bool case2 = (DEFORM_MODE::MODE_LINE != deformMode && !inAnyGroup(ellipseSet, radiusOuterAll, nEllipse, origPos[i]));
-	bool case3 = (true == vertexIsFocus[i]);
-	if(	case1 || case2 || case3)
+	if(	!inAnyEllipse|| vertexIsFocus[i])
 	{
 		//make sure it would not recover into the deformation region
-		float4 temp = Recover3DPosition(pos[i], origPos[i], moveSpeed);
-		/*if(DEFORM_MODE::MODE_LINE == deformMode)
-		{
-			if(true == vertexIsFocus[i] || !inAnyGroupLine(ellipseSet, radiusOuterAll, nEllipse, temp) )
-				pos[i] = temp;
-		}
-		else
-		{
-			if(true == vertexIsFocus[i] || !inAnyGroup(ellipseSet, radiusOuterAll, nEllipse, temp) )
-				pos[i] = temp;
-		}*/
-		
-		pos[i] = temp;
+		pos[i] = Recover3DPosition(pos[i], origPos[i], moveSpeed);;
 		pos_clip[i] = Object2Clip(pos[i]);
 	}
 }

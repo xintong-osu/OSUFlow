@@ -64,6 +64,7 @@ set<int> _deviceId;
 map<int, vector<VECTOR2>> _touchCoords;
 
 bool firstTime = true;
+bool _fingersInsideLens = false;
 
 enum
 {
@@ -337,9 +338,13 @@ void _MouseFunc(int button, int state, int x, int y)
 				}
 				//else
 				//	cLineRenderer.getDeformLine()->SetInteractMode(INTERACT_MODE::TRANSFORMATION);
+				_fingersInsideLens = true;
 			}
 			else
+			{
 				SetDisableTransformation(false);
+				_fingersInsideLens = false;
+			}
 
 		}
 		else if(state == GLUT_UP)
@@ -441,7 +446,7 @@ void _MultiMotionFunc(int id, int x, int y, float g, map<int, vector<VECTOR2>> t
 		default:
 			{
 			//	cout<<"g:"<<g<<endl;
-				if(abs(g) > 0.01)
+				if(abs(g) > 0.01 && _fingersInsideLens)
 					cLineRenderer.getDeformLine()->ChangeLensDepth(g * 0.1);
 				break;
 			}
@@ -527,6 +532,10 @@ void _MultiEntryFunc(int id, int mode, map<int, vector<VECTOR2>> touchCoords)
 	//for(set<int>::iterator it=_deviceId.begin(); it!=_deviceId.end(); ++it)
 	//	std::cout << ' ' << *it;
 	//cout<<endl;
+	if(mode == GLUT_LEFT)
+	{
+		//cLineRenderer.getDeformLine()->
+	}
 }
 
 
@@ -736,20 +745,21 @@ void control_cb( int control )
 			case 0:
 				cLineRenderer.getDeformLine()->SetDeformMode(MODE_ELLIPSE);
 				cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
-
 				break;
 			case 1:
 				cLineRenderer.getDeformLine()->SetDeformMode(MODE_LINE);
 				cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
-
 				break;
 			case 2:
 				cLineRenderer.getDeformLine()->SetDeformMode(MODE_HULL);
 				cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
-
 				break;
 			case 3:
 				cLineRenderer.getDeformLine()->SetAutoDeformMode(true);
+				break;
+			case 4:
+				cLineRenderer.getDeformLine()->SetDeformMode(MODE_DIRECT_TRANSLATE);
+				cLineRenderer.getDeformLine()->SetAutoDeformMode(false);
 				break;
 			}
 
@@ -818,7 +828,7 @@ main(int argc, char* argv[])
 
 	///////////////////////////////////////////////////////////////
 	glutInitWindowPosition(200, 150);
-	glutInitWindowSize(900, 770);
+	glutInitWindowSize(1030, 770);
 	deformWindowId = glutCreateWindow("Streamline Deformation Visualization");
 
 	// specify the callbacks you really need. Except gcbInit() and gcbDisplayFunc(), other callbacks are optional
@@ -882,6 +892,7 @@ main(int argc, char* argv[])
 	new GLUI_RadioButton( radioShapeModel, "Line" );
 	new GLUI_RadioButton( radioShapeModel, "Hull" );
 	new GLUI_RadioButton( radioShapeModel, "Auto" );
+	new GLUI_RadioButton( radioShapeModel, "Direct Transform" );
 
 	new GLUI_Column( glui, false );
 	GLUI_Panel *location_panel = new GLUI_Panel( glui, "Cube Location" );
