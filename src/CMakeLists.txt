@@ -70,6 +70,7 @@ list(APPEND SRC_FILES
 	LatticeAMR.C 
 	Plot3DReader.C
 	CurvilinearGrid.C
+        UncertainSolution.C
 	)
 
 # DEL-BY-LEETEN 01/06/2012-BEGIN
@@ -88,16 +89,16 @@ add_library(${PROJECT_NAME} ${LIB_TYPE} ${SRC_FILES} ${HEADER_FILES})
 # ADD-BY-LEETEN 09/01/2011-BEGIN
 set_target_properties(${PROJECT_NAME} PROPERTIES 
 	DEBUG_OUTPUT_NAME "${PROJECT_NAME}_d"
-	RELEASE_OUTPUT_NAME "${PROJECT_NAME}_r"
+	RELEASE_OUTPUT_NAME "${PROJECT_NAME}"
 	)
 
 install(
 	FILES ${HEADER_FILES}
-	DESTINATION include)
+	DESTINATION include/osuflow)
 	
 install(
 	TARGETS ${PROJECT_NAME}
-	DESTINATION lib)
+	DESTINATION lib/osuflow)
 # ADD-BY-LEETEN 09/01/2011-END
 
 #

@@ -4,12 +4,6 @@
 cmake_minimum_required (VERSION 2.8)
 project (gcb) 
 
-if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
-	add_definitions(
-		-DLINUX
-	)
-endif()
-
 # ADD-BY-LEETEN 08/23/2012-BEGIN
 if( DEFINED WIN32 )
 	message(WARNING "For Win32 environment, please manually specify the GLUT library to used (glut32,freeglut,openglut,etc)")
@@ -33,16 +27,16 @@ add_library(${PROJECT_NAME} ${LIBGCB_SRC_FILES} ${HEADER_FILES})
 # ADD-BY-LEETEN 09/01/2011-BEGIN
 set_target_properties(${PROJECT_NAME} PROPERTIES 
 	DEBUG_OUTPUT_NAME 	"${PROJECT_NAME}_d"
-	RELEASE_OUTPUT_NAME "${PROJECT_NAME}_r"
+	RELEASE_OUTPUT_NAME "${PROJECT_NAME}"
 	)
 
 install(
 	FILES ${HEADER_FILES}
-	DESTINATION include/renderer/gcb)
+	DESTINATION include/osuflow/renderer/gcb)
 	
 install(
 	TARGETS ${PROJECT_NAME}
-	DESTINATION lib)
+	DESTINATION lib/osuflow)
 # ADD-BY-LEETEN 09/01/2011-END
 
 #

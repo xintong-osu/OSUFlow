@@ -222,14 +222,14 @@ int RegularCartesianGrid::getCellVertices(int cellId,
 bool RegularCartesianGrid::at_vertex(int verIdx, VECTOR3& pos)
 {
   int xidx, yidx, zidx;
-  int totalVer = xdim() * ydim() * zdim();
+  int w=xdim(), h=ydim(), d=zdim();
+  int totalVer = w*h*d;
   if((verIdx < 0) || (verIdx >= totalVer))
     return false;
 
-  zidx = verIdx / (xdim() * ydim());
-  yidx = verIdx % (xdim() * ydim());
-  yidx = verIdx / xdim();
-  xidx = verIdx - zidx * xdim() * ydim() - yidx * xdim();
+  zidx = verIdx / (w*h);
+  yidx = (verIdx % (w*h)) / w; // bug fixed 07/04/2014
+  xidx = verIdx % w;
 
   float xpos = m_vMinBound[0] + xidx*oneOvermappingFactorX; 
   float ypos = m_vMinBound[1] + yidx*oneOvermappingFactorY; 
@@ -300,8 +300,13 @@ int RegularCartesianGrid::phys_to_cell(PointInfo& pInfo)
 
   int xidx, yidx, zidx;
   xidx = (int)floor(cx); 
-  yidx = (int)floor(cy); 
+  yidx = (int)floor(cy);
   zidx = (int)floor(cz); 
+
+  // special treatment for the very boundary position -- fixed by Jimmy 8/30/2014
+  if (xidx == xcelldim()) xidx--;
+  if (yidx == ycelldim()) yidx--;
+  if (zidx == zcelldim()) zidx--;
 
   int inCell = zidx * ycelldim() * xcelldim() + yidx * xcelldim() + xidx;
 

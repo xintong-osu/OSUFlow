@@ -1,8 +1,8 @@
 /////////////////////////////////////////////////////////////////////////////
 //
 //                 OSU Flow Vis Library
-//                 Created: Han-Wei Shen, Liya Li 
-//                 The Ohio State University	
+//                 Created: Han-Wei Shen, Liya Li
+//                 The Ohio State University
 //                 Date:		06/2005
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -23,7 +23,7 @@ CVectorField::CVectorField()
 	Reset();
 }
 
-CVectorField::CVectorField(Grid* pGrid, Solution* pSolution, int timesteps, 
+CVectorField::CVectorField(Grid* pGrid, Solution* pSolution, int timesteps,
 			   int min_t)
 {
 	assert((pGrid != NULL) && (pSolution != NULL));
@@ -31,7 +31,7 @@ CVectorField::CVectorField(Grid* pGrid, Solution* pSolution, int timesteps,
 	m_pSolution = pSolution;
 	m_nTimeSteps = timesteps;
 	m_bIsNormalized = false;
-	m_MinT = min_t;  m_MaxT = min_t + timesteps -1; 
+	m_MinT = min_t;  m_MaxT = min_t + timesteps -1;
 }
 
 CVectorField::~CVectorField()
@@ -46,7 +46,7 @@ void CVectorField::Reset(void)
 	m_pGrid = NULL;
 	m_pSolution = NULL;
 	m_bIsNormalized = false;
-	m_MinT = m_MaxT = -1; 
+	m_MinT = m_MaxT = -1;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -123,9 +123,9 @@ int CVectorField::at_cell(int cellId,
 //		1:			operation successful
 //		-1:			operation fail
 //////////////////////////////////////////////////////////////////////////
-int CVectorField::at_phys(VECTOR3 pos, float t, VECTOR3& vecData)
+int CVectorField::at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData)
 {
-	vector<VECTOR3> vNodeData;
+	vector<VECTOR3> vNodeData(8);
 	PointInfo pInfo;
 
 	// find the cell this position belongs to
@@ -143,13 +143,13 @@ int CVectorField::at_phys(VECTOR3 pos, float t, VECTOR3& vecData)
 	return 1;
 }
 
-int CVectorField::at_phys(const int fromCell, 
-			  VECTOR3& pos, 
+int CVectorField::at_phys(const int fromCell,
+			  VECTOR3& pos,
 			  PointInfo& pInfo,
 			  const float t, VECTOR3& nodeData)
 {
 	vector<VECTOR3> vNodeData;
-		
+
 	// find the cell this position belongs to
 	pInfo.Set(pos, pInfo.interpolant, fromCell, -1);
 	if(m_pGrid->phys_to_cell(pInfo) == -1) {
@@ -179,16 +179,34 @@ int CVectorField::at_phys(const int fromCell,
 //		1:			operation successful
 //		-1:			operation fail
 //////////////////////////////////////////////////////////////////////////
-int CVectorField::at_vert(const int i, 
-			  const int j, 
-			  const int k, 
-			  const float t, 
+int CVectorField::at_vert(const int i,
+			  const int j,
+			  const int k,
+			  const float t,
 			  VECTOR3& dataValue)
 {
 	int xdim, ydim, zdim;
 	getDimension(xdim, ydim, zdim);
+    if (i<0 || j<0 || k<0 || i>=xdim || j>=ydim || k>=zdim)
+        return -1;
 	return m_pSolution->GetValue((k*ydim*xdim+j*xdim+i), t, dataValue);
 }
+
+
+//////////////////////////////////////////////////////////////////////////
+// To obtain physical coordinate on grid
+// only works for structured grids
+//////////////////////////////////////////////////////////////////////////
+int CVectorField::phys_coord(int i, int j, int k, VECTOR3 &pos)
+{
+    int xdim, ydim, zdim;
+    getDimension(xdim, ydim, zdim);
+    if (i<0 || j<0 || k<0 || i>=xdim || j>ydim || k>zdim)
+        return -1;
+    bool b = m_pGrid->at_vertex(i+xdim*(j+ydim*k), pos);
+    return b?1:-1;
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 // to obtain node data at one slice aligned with X, Y, or Z direction
@@ -214,7 +232,7 @@ int CVectorField::at_slice(int slice,
 	int tag;
 
 	getDimension(xdim, ydim, zdim);
-	
+
 	// x aligned slice
 	if(eSliceType == X_ALIGNED)
 	{
@@ -275,14 +293,16 @@ int CVectorField::at_slice(int slice,
 //		1:			operation successful
 //		-1:			operation fail
 //////////////////////////////////////////////////////////////////////////
-int CVectorField::at_comp(const int i, 
-			  const int j, 
-			  const int k, 
-			  const float t, 
+/*
+int CVectorField::at_comp(const int i,
+			  const int j,
+			  const int k,
+			  const float t,
 			  VECTOR3& dataValue)
 {
 	return 1;
 }
+*/
 
 //////////////////////////////////////////////////////////////////////////
 // volume of a cell
@@ -313,10 +333,14 @@ void CVectorField::NormalizeField(bool bLocal)
 	}
 }
 
-void CVectorField::ScaleField(float scale) 
+void CVectorField::ScaleField(float scale)
 {
-  m_pSolution->Scale(scale); 
-} 
+  m_pSolution->Scale(scale);
+}
+
+void CVectorField::TranslateField(VECTOR3& translate) {
+	m_pSolution->Translate(translate);
+}
 
 // ADD-BY-LEETEN 02/02/2012-BEGIN
 void
@@ -338,9 +362,9 @@ CVectorField::Scan
 // output
 // pos: the output physical coordinates
 //////////////////////////////////////////////////////////////////////////
-int CVectorField::lerp_phys_coord(int cellId, 
-				  CellTopoType eCellTopoType, 
-				  float* coeff, 
+int CVectorField::lerp_phys_coord(int cellId,
+				  CellTopoType eCellTopoType,
+				  float* coeff,
 				  VECTOR3& pos)
 {
 	vector<int> vVertices;
@@ -353,13 +377,13 @@ int CVectorField::lerp_phys_coord(int cellId,
 
 	switch(eCellTopoType)
 	{
-		case T0_CELL:								
+		case T0_CELL:
 			break;
-		case T1_CELL:								
+		case T1_CELL:
 			break;
-		case T2_CELL:						
+		case T2_CELL:
 			break;
-		case T3_CELL:	
+		case T3_CELL:
 			vData.clear();
 			for(iFor = 0; iFor < 4; iFor++)
 			{
@@ -972,8 +996,8 @@ void CVectorField::GetOutflowSlice(vector<VECTOR3>& outflowVerts,
 }
 
 void CVectorField::GetTangentialflowSlice(vector<VECTOR3>& tanflowVerts,
-										  const float t, 
-										  const int slice, 
+										  const float t,
+										  const int slice,
 										  const SliceType eSliceType)
 {
 	VECTOR3 inwardFaceN[6];
@@ -1064,14 +1088,14 @@ void CVectorField::GetTangentialflowSlice(vector<VECTOR3>& tanflowVerts,
 }
 
 // compute the curl
-void CVectorField::curl(float deltaX, 
-						float deltaY, 
+void CVectorField::curl(float deltaX,
+						float deltaY,
 						float deltaZ,		// grid spacing
 						VECTOR3& uL,		// vector value of i-1
 						VECTOR3& uR,		// vector value of i+1
-						VECTOR3& vL, 
-						VECTOR3& vR, 
-						VECTOR3& wL, 
+						VECTOR3& vL,
+						VECTOR3& vR,
+						VECTOR3& wL,
 						VECTOR3& wR,
 						VECTOR3& vort)
 {
@@ -1080,7 +1104,7 @@ void CVectorField::curl(float deltaX,
 	oneoverdeltax = 1.0 / deltaX;
 	oneoverdeltay = 1.0 / deltaY;
 	oneoverdeltaz = 1.0 / deltaZ;
-	
+
 	x = (wR[1] - wL[1])*oneoverdeltay - (vR[2] - vL[2])*oneoverdeltaz;
 	y = (uR[2] - uL[2])*oneoverdeltaz - (wR[0] - wL[0])*oneoverdeltax;
 	z = (vR[0] - vL[0])*oneoverdeltax - (uR[1] - uL[1])*oneoverdeltay;
@@ -1100,7 +1124,7 @@ void CVectorField::at_curl(int t,						// which time step
 	VECTOR3 p1, p2;
 	float gridX, gridY, gridZ;
 	int xdim, ydim, zdim;
-	
+
 	getDimension(xdim, ydim, zdim);
 	m_pGrid->GetGridSpacing(0, gridX, gridY, gridZ);
 
@@ -1297,9 +1321,9 @@ void CVectorField::GenerateVortField(int t,				// which time step
 				else
 					at_vert(iFor, jFor, kFor+1, t, wR);
 
-				curl(xBoundary? gridX: gridX*2.0, 
+				curl(xBoundary? gridX: gridX*2.0,
 					 yBoundary? gridY: gridY*2.0,
-					 zBoundary? gridZ: gridZ*2.0, 
+					 zBoundary? gridZ: gridZ*2.0,
 					 uL, uR, vL, vR, wL, wR, pVort[index]);
 
 				if(bToNormalize)
@@ -1320,7 +1344,7 @@ void CVectorField::GenerateLapField(int t, bool bToNormalize, VECTOR3* pLap)
 	int iFor, jFor, kFor, index, xdim, ydim, zdim;
 	VECTOR3 p1, p2, p3;
 	float u, v, w, gridX, gridY, gridZ;
-		
+
 	getDimension(xdim, ydim, zdim);
 	m_pGrid->GetGridSpacing(0, gridX, gridY, gridZ);
 	gridX *= gridX;
@@ -1374,4 +1398,331 @@ bool CVectorField::IsInRealBoundaries(PointInfo& p)
 bool CVectorField::IsInRealBoundaries(PointInfo& p, float time)
 {
   return m_pGrid->isInRealBBox(p.phyCoord, time);
+}
+
+// feature computation - static
+
+//////////////////////////////////////////////////////////////////////////
+// to get Jacobian matrix in pos(i, j, k)
+//
+// input
+//		Vector3: position in computational space
+// output
+//		Matrix3: Jacobian matrix at that position
+//////////////////////////////////////////////////////////////////////////
+MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
+
+    int s1 = 0, s2 = 0;
+    MATRIX3 jacobian, invalid;
+    invalid[0][0]=invalid[0][1]=invalid[0][2]=invalid[1][0]=invalid[1][1]=invalid[1][2]=invalid[2][0]=invalid[2][1]=invalid[2][2]=NAN;
+
+	VECTOR3 deltax(delta, 0.0f, 0.0f);
+	VECTOR3 deltay(0.0f, delta, 0.0f);
+	VECTOR3 deltaz(0.0f, 0.0f, delta);
+
+	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
+    s1 = at_phys(pos, 0, originVector);
+    if ( s1 == -1 )
+        return invalid;
+
+	// first column
+	s1 = at_phys(pos + deltax, 0, forwardVector);
+	s2 = at_phys(pos - deltax, 0, backwardVector);
+	if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		jacobian[0][0] = componentGradient[0] / (2.0 * delta);
+		jacobian[1][0] = componentGradient[1] / (2.0 * delta);
+		jacobian[2][0] = componentGradient[2] / (2.0 * delta);
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		jacobian[0][0] = componentGradient[0] / delta;
+		jacobian[1][0] = componentGradient[1] / delta;
+		jacobian[2][0] = componentGradient[2] / delta;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		jacobian[0][0] = componentGradient[0] / delta;
+		jacobian[1][0] = componentGradient[1] / delta;
+		jacobian[2][0] = componentGradient[2] / delta;
+	}
+    else
+        return invalid;
+
+	// second column
+	s1 = at_phys(pos + deltay, 0, forwardVector);
+	s2 = at_phys(pos - deltay, 0, backwardVector);
+	if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		jacobian[0][1] = componentGradient[0] / (2.0 * delta);
+		jacobian[1][1] = componentGradient[1] / (2.0 * delta);
+		jacobian[2][1] = componentGradient[2] / (2.0 * delta);
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		jacobian[0][1] = componentGradient[0] / delta;
+		jacobian[1][1] = componentGradient[1] / delta;
+		jacobian[2][1] = componentGradient[2] / delta;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		jacobian[0][1] = componentGradient[0] / delta;
+		jacobian[1][1] = componentGradient[1] / delta;
+		jacobian[2][1] = componentGradient[2] / delta;
+	}
+    else
+        return invalid;
+
+	// third column
+	s1 = at_phys(pos + deltaz, 0, forwardVector);
+	s2 = at_phys(pos - deltaz, 0, backwardVector);
+	if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		jacobian[0][2] = componentGradient[0] / (2.0 * delta);
+		jacobian[1][2] = componentGradient[1] / (2.0 * delta);
+		jacobian[2][2] = componentGradient[2] / (2.0 * delta);
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		jacobian[0][2] = componentGradient[0] / delta;
+		jacobian[1][2] = componentGradient[1] / delta;
+		jacobian[2][2] = componentGradient[2] / delta;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		jacobian[0][2] = componentGradient[0] / delta;
+		jacobian[1][2] = componentGradient[1] / delta;
+		jacobian[2][2] = componentGradient[2] / delta;
+	}
+    else
+        return invalid;
+
+    return jacobian;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Added by Jimmy
+// to get unit Jacobian matrix in pos(i, j, k).
+// Used in structured-grid datasets where the coordinates are not regular
+//
+// input
+//		Vector3: position in computational space
+// output
+//		Matrix3: unit Jacobian matrix at that position
+// Math:
+//      J = J*inv(T)
+//////////////////////////////////////////////////////////////////////////
+MATRIX3 CVectorField::JacobianStructuredGrid(const int i, const int j, const int k) {
+	int s1 = 0, s2 = 0;
+    MATRIX3 jacobian, transform, invTransform, invalid;
+    invalid[0][0]=invalid[0][1]=invalid[0][2]=invalid[1][0]=invalid[1][1]=invalid[1][2]=invalid[2][0]=invalid[2][1]=invalid[2][2]=NAN;
+	float scale;
+
+	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
+	VECTOR3 originPos, forwardPos, backwardPos, componentTransform;
+    s1 = at_vert(i, j, k, 0, originVector);
+	s1 = phys_coord(i, j, k, originPos);
+    if (s1 != 1)
+        return invalid;
+
+    // deferential over xi
+    s1 = phys_coord(i+1, j, k, forwardPos);
+    s2 = phys_coord(i-1, j, k, backwardPos);
+    s1 = at_vert   (i+1, j, k, 0, forwardVector);
+    s2 = at_vert   (i-1, j, k, 0, backwardVector);
+    if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		componentTransform = forwardPos - backwardPos;
+		scale = .5f;
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		componentTransform = originPos - backwardPos;
+		scale = 1.f;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		componentTransform = forwardPos - originPos;
+		scale = 1.f;
+	}
+	else
+        return invalid;
+    jacobian[0][0] = componentGradient[0] * scale;
+    jacobian[1][0] = componentGradient[1] * scale;
+    jacobian[2][0] = componentGradient[2] * scale;
+    transform[0][0] = componentTransform[0] * scale;
+    transform[1][0] = componentTransform[1] * scale;
+    transform[2][0] = componentTransform[2] * scale;
+
+    // deferential over eta
+    s1 = phys_coord(i, j+1, k, forwardPos);
+    s2 = phys_coord(i, j-1, k, backwardPos);
+    s1 = at_vert   (i, j+1, k, 0, forwardVector);
+    s2 = at_vert   (i, j-1, k, 0, backwardVector);
+	if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		componentTransform = forwardPos - backwardPos;
+		scale = .5f;
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		componentTransform = originPos - backwardPos;
+		scale = 1.f;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		componentTransform = forwardPos - originPos;
+		scale = 1.f;
+	}
+	else
+        return invalid;
+    jacobian[0][1] = componentGradient[0] * scale;
+    jacobian[1][1] = componentGradient[1] * scale;
+    jacobian[2][1] = componentGradient[2] * scale;
+    transform[0][1] = componentTransform[0] * scale;
+    transform[1][1] = componentTransform[1] * scale;
+    transform[2][1] = componentTransform[2] * scale;
+
+    // deferential over zeta
+    s1 = phys_coord(i, j, k+1, forwardPos);
+    s2 = phys_coord(i, j, k-1, backwardPos);
+    s1 = at_vert   (i, j, k+1, 0, forwardVector);
+    s2 = at_vert   (i, j, k-1, 0, backwardVector);
+	if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		componentTransform = forwardPos - backwardPos;
+		scale = .5f;
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		componentTransform = originPos - backwardPos;
+		scale = 1.f;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		componentTransform = forwardPos - originPos;
+		scale = 1.f;
+	}
+	else
+        return invalid;
+    jacobian[0][2] = componentGradient[0] * scale;
+    jacobian[1][2] = componentGradient[1] * scale;
+    jacobian[2][2] = componentGradient[2] * scale;
+    transform[0][2] = componentTransform[0] * scale;
+    transform[1][2] = componentTransform[1] * scale;
+    transform[2][2] = componentTransform[2] * scale;
+
+
+	s1 = transform.inverse(invTransform);
+    if (s1!=1) return invalid;
+
+    #if 0
+        MATRIX3 m1 = jacobian;
+		MATRIX3 m2 = transform;
+        printf("j: %f %f %f \t  t: %f %f %f\n", m1[0][0], m1[0][1], m1[0][2], m2[0][0], m2[0][1], m2[0][2]);
+        printf("j: %f %f %f \t  t: %f %f %f\n", m1[1][0], m1[1][1], m1[1][2], m2[1][0], m2[1][1], m2[1][2]);
+        printf("j: %f %f %f \t  t: %f %f %f\n", m1[2][0], m1[2][1], m1[2][2], m2[2][0], m2[2][1], m2[2][2]);
+    #endif
+    return jacobian * invTransform;
+}
+//////////////////////////////////////////////////////////////////////////
+// to get vortex metrics in pos(i, j, k)
+//
+// input
+//		Vector3: position in computational space
+// output
+//      Metrics Order: lambda2, q, delta, gamma2
+//////////////////////////////////////////////////////////////////////////
+void CVectorField::GenerateVortexMetrics(MATRIX3& J, float& lambda2, float& q, float& delta, float& gamma2) {
+    MATRIX3 Jt, S, T, S2, T2, M;
+    Jt = J.transpose();
+	S = 0.5 * (J + Jt); T = 0.5 * (J - Jt);
+	S2 = S * S; T2 = T * T; M = S2 + T2;
+	float s[3][3], m[3][3], eigenvalues[3];
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			s[i][j] = S(i, j);
+			m[i][j] = M(i, j);
+		}
+	}
+	compute_eigenvalues(m, eigenvalues);
+
+	int min = 0, max = 0;
+	if (eigenvalues[max] < eigenvalues[1]) max = 1;
+	if (eigenvalues[max] < eigenvalues[2]) max = 2;
+	if (eigenvalues[min] > eigenvalues[1]) min = 1;
+	if (eigenvalues[min] > eigenvalues[2]) min = 2;
+	lambda2 = eigenvalues[3 - min - max];
+	q = -(eigenvalues[0] + eigenvalues[1] + eigenvalues[2]) * 0.5;
+	float det = J.det();
+	delta = pow((q / 3.0), 3) + pow(det / 2.0, 2);
+	float sqrt_d = sqrt(T(0, 1) * T(0, 1) + T(0, 2) * T(0, 2) + T(1, 2) * T(1, 2));
+
+	compute_eigenvalues(s, eigenvalues);
+
+	float he = eigenvalues[0];
+	if (he < eigenvalues[1]) he = eigenvalues[1];
+	if (he < eigenvalues[2]) he = eigenvalues[2];
+	// if (fabs(he) > 0.00005) {
+		gamma2 = fabs(sqrt_d / he);
+	// }
+	// else gamma2 = 0;
+}
+
+void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta) {
+    MATRIX3 J, Jt, S, T, S2, T2, M;
+    J = Jacobian(pos, JacDelta);
+    GenerateVortexMetrics(J, lambda2, q, delta, gamma2);
+}
+
+void CVectorField::GenerateVortexMetrics(int i, int j, int k, float& lambda2, float& q, float& delta, float& gamma2) {
+    MATRIX3 J, Jt, S, T, S2, T2, M;
+    J = JacobianStructuredGrid(i, j, k);
+    GenerateVortexMetrics(J, lambda2, q, delta, gamma2);
+}
+//////////////////////////////////////////////////////////////////////////
+// to get vortex metrics along samples of a streamline
+//
+// input
+//		Vector3*: streamline samples
+// output
+//      Metrics Order: lambda2, q, delta, gamma2 (float array)
+//////////////////////////////////////////////////////////////////////////
+void CVectorField::GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2) {
+	for (int i = 0; i < num; i++) {
+		GenerateVortexMetrics(fieldline[i], lambda2[i], q[i], delta[i], gamma2[i]);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+// to get curvature along samples of a streamline
+//
+// input
+//		Vector3*: streamline samples
+// output
+//      float*: curvatures
+//////////////////////////////////////////////////////////////////////////
+void CVectorField::Curvature(VECTOR3* const fieldline, const int num, float* curvature) {
+	VECTOR3 tangent, tangentPrime;
+	MATRIX3 mj;
+	for (int i = 0; i < num; i++) {
+        mj = Jacobian(fieldline[i]);
+		at_phys(fieldline[i], 0, tangent);
+		tangent.Normalize();
+
+		tangentPrime = mj * tangent;
+		curvature[i] = tangentPrime.GetMag();
+	}
+}
+
+float CVectorField::Curvature(int i, int j, int k) {
+  VECTOR3 tangent, tangentPrime;
+  MATRIX3 mj;
+  mj = JacobianStructuredGrid(i,j,k);
+
+  at_vert(i,j,k, 0, tangent);
+  tangent.Normalize();
+
+  tangentPrime = mj * tangent;
+  return tangentPrime.GetMag();
 }

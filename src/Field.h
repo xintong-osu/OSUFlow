@@ -1,8 +1,8 @@
 /////////////////////////////////////////////////////////////////////////////
 //
 //                 OSU Flow Vector Field
-//                 Created: Han-Wei Shen, Liya Li 
-//                 The Ohio State University	
+//                 Created: Han-Wei Shen, Liya Li
+//                 The Ohio State University
 //                 Date:		06/2005
 //                 Vector Field: 3D Static or Time-Varying
 //
@@ -26,12 +26,12 @@
 
 class CVectorField
 {
-private:
+protected:
 	Grid* m_pGrid;						// grid
 	Solution* m_pSolution;				// vector data
 	int m_nTimeSteps;
 	bool m_bIsNormalized;				// whether the solution is normalized or not
-	int m_MinT, m_MaxT; // the min and max time step of the data field 
+	int m_MinT, m_MaxT; // the min and max time step of the data field
 
 public:
 	// constructor and destructor
@@ -40,15 +40,20 @@ public:
 	virtual ~CVectorField();
 
 	virtual int lerp_phys_coord(int cellId, CellTopoType eCellTopoType, float* coeff, VECTOR3& pos);
+    virtual int phys_coord(const int i, const int j, const int k, VECTOR3 &pos);
 	virtual int at_cell(int cellId, CellTopoType eCellTopoType, const float t, vector<VECTOR3>& vNodeData);
 	virtual int at_slice(int slice, SliceType eSliceType, const float t, vector<VECTOR3>&vSliceData);
 	virtual int at_vert(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
-	virtual int at_phys(VECTOR3 pos, float t, VECTOR3& vecData);
+    virtual int at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData);
 	virtual int at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData);
-	virtual int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
+    //virtual int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
 	virtual float volume_of_cell(int cellId);
-	virtual void NormalizeField(bool bLocal);
+    // bLocal: whether to normalize in each timestep or through all timesteps.
+    //		   if locally, then divide its magnitude; if globally, then divide
+    //		   by the maximal magnitude through the whole field
+    virtual void NormalizeField(bool bLocal);
 	virtual void ScaleField(float scale);
+	virtual void TranslateField(VECTOR3& translate);
 
 	// ADD-BY-LEETEN 02/02/2012-BEGIN
 	virtual void Scan
@@ -58,6 +63,7 @@ public:
 	// ADD-BY-LEETEN 02/02/2012-END
 
 	virtual bool IsNormalized(void);
+    // get the dimension in computational space (structured grids only)
 	virtual void getDimension(int& xdim, int& ydim, int& zdim);
 	virtual CellType GetCellType(void) { return m_pGrid->GetCellType(); }
 	virtual int GetTimeSteps(void) {return m_nTimeSteps;}
@@ -69,9 +75,8 @@ public:
 	virtual void GetInflowSlice(vector<VECTOR3>& inflowVerts, const float t, const int slice, const SliceType eSliceType);
 	virtual void GetOutflowSlice(vector<VECTOR3>& outflowVerts, const float t, const int slice, const SliceType eSliceType);
 	virtual void GetTangentialflowSlice(vector<VECTOR3>& tanflowVerts, const float t, const int slice, const SliceType eSliceType);
-	virtual void Boundary(VECTOR3& minB, VECTOR3& maxB) { m_pGrid->Boundary(minB, maxB); };
-	virtual void SetBoundary(VECTOR3 minB, VECTOR3 maxB) {m_pGrid->SetBoundary(minB, maxB);
-	}
+    virtual void Boundary(VECTOR3& minB, VECTOR3& maxB) { m_pGrid->Boundary(minB, maxB); }
+	virtual void SetBoundary(VECTOR3 minB, VECTOR3 maxB) {m_pGrid->SetBoundary(minB, maxB);	}
 	virtual void at_curl(int, VECTOR3&, VECTOR3&);
 	virtual void BoundaryIntersection(VECTOR3& intersectP,VECTOR3& startP,VECTOR3& endP,float* stepSize,float oldStepSize)
 	{ m_pGrid->BoundaryIntersection(intersectP, startP, endP, stepSize, oldStepSize); }
@@ -80,6 +85,23 @@ public:
 	virtual bool IsInRealBoundaries(PointInfo& p);
 	virtual bool IsInRealBoundaries(PointInfo& p, float time);
 
+	// feature computation - static
+    MATRIX3 Jacobian(const VECTOR3& pos, float delta=0.1f);
+    MATRIX3 JacobianStructuredGrid(const int i, const int j, const int k) ;
+
+
+	void GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta=0.1f);
+    void GenerateVortexMetrics(MATRIX3& J, float& lambda2, float& q, float& delta, float& gamma2) ;
+    void GenerateVortexMetrics(int i, int j, int k, float& lambda2, float& q, float& delta, float& gamma2) ;
+    void GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2);
+
+    void Curvature(VECTOR3* const fieldline, const int num, float* curvature) ;
+
+    // Compute curvature in computation space
+    float Curvature(int i, int j, int k);
+
+	// temp function
+	inline Grid *GetGrid() {return m_pGrid;}
 protected:
 	// reset
 	virtual void Reset(void);
@@ -88,5 +110,16 @@ protected:
 	// curl
 	virtual void curl(float, float, float, VECTOR3&, VECTOR3&, VECTOR3&, VECTOR3&, VECTOR3&, VECTOR3&, VECTOR3&);
 };
+
+// file polynomials.c
+extern double cube_root(double x);
+extern int solve_cubic(float, float, float, float, float*, float*, float*);
+extern int solve_quadratic(float, float, float, float*, float*);
+extern int solve_linear(float, float, float*);
+
+// file eigenvals.c
+extern int compute_eigenvalues(float m[3][3], float eigenvalues[3]);
+extern void compute_real_eigenvectors(float m[3][3], float vals[3], float vecs[3][3]);
+extern void compute_complex_eigenvectors(float m[3][3], float vals[3], float vecs[3][3]);
 
 #endif

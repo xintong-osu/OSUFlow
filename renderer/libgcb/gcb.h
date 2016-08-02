@@ -26,17 +26,10 @@ using namespace std;
 #ifdef USE_FREEGLUT
 	#define GLUT_DISABLE_ATEXIT_HACK
 	#include <GL/freeglut.h>
-	// MOD-BY-LEETEN 08/13/2010-FROM:
-		// #pragma comment (lib, "freeglut.lib")      /* link with Windows MultiMedia lib */
-	// TO:
-	#ifdef  WIN32
-		#pragma comment (lib, "freeglut.lib")      /* link with Windows MultiMedia lib */
-	#endif
-	// MOD-BY-LEETEN 08/13/2010-END
 #else
 	#define GLUT_BUILDING_LIB
 
-#if defined(MAC_OSX_OMPI) || defined(MAC_OSX_MPICH)
+#ifdef __APPLE__
 #include <GLUT/glut.h>
 #include <OpenGL/gl.h>
 #endif

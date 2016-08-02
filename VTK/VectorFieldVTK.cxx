@@ -9,6 +9,11 @@
 #include <vtkAMRInterpolatedVelocityField.h>
 #include <vtkCellLocatorInterpolatedVelocityField.h>
 #include <vtkImageData.h>
+#include <vtkImageInterpolator.h>
+#include <vtkMultiBlockDataSet.h>
+#include <vtkPointData.h>
+#include <vtkMath.h>
+#include <vtkNew.h>
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
@@ -37,7 +42,8 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 {
 	vtkOverlappingAMR* amrData = vtkOverlappingAMR::SafeDownCast(data);
-	vtkAbstractInterpolatedVelocityField *interpolator;
+	vtkMultiBlockDataSet *mbData = vtkMultiBlockDataSet::SafeDownCast(data);
+	vtkAbstractInterpolatedVelocityField *interpolator = NULL;
 
 	if(amrData)
 	{
@@ -45,21 +51,44 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 		func->SetAMRData(amrData);
 		interpolator = func;
 	}
+	else if (mbData)
+	{
+		int b;
+		vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
+		for (b=0; b < mbData->GetNumberOfBlocks(); b++)
+		{
+			vtkDataSet *dataset = vtkDataSet::SafeDownCast( mbData->GetBlock(b) );
+			if (!dataset) {
+				fprintf(stderr, "Hierarchical multiblock dataset not supported yet\n");
+				return;
+			}
+			//double *bounds = dataset->GetBounds();
+			//printf("bounds: %f %f %f %f %f %f\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5], bounds[6]);
+
+			// vector
+            func->AddDataSet(dataset);
+		}
+        //printf("Multiblock dataset \n");
+		interpolator = func;
+	}
 	else
 	{
 		vtkUnstructuredGrid *unstructured = vtkUnstructuredGrid::SafeDownCast(data);
+		vtkImageData *image = vtkImageData::SafeDownCast(data);
 		if (unstructured) {
+			//printf("Unstrcutred data\n");
 			vtkCellLocatorInterpolatedVelocityField *func = vtkCellLocatorInterpolatedVelocityField::New();
 			func->AddDataSet(data);
 			interpolator = func;
-			printf("Unstrcutred data\n");
+		} else if (image) { // regular grid
+			printf("Error: Image Data : Use CVectorField class\n");
 
-		} else
+		} else // structured grid
 		{
+			//printf("Structured Data\n");
 			vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
 			func->AddDataSet(data);
 			interpolator = func;
-			printf("Mesh Data\n");
 		}
 	}
 
@@ -83,13 +112,37 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	assert(false);
 	return -1;
 }
- int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t, VECTOR3& dataValue) {
-	printf("at_vert Not implemented\n");
-	assert(false);
-	return -1;
+int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t, VECTOR3& vecData) {
+     // GetVectors() assumes the active vectors are set by the main program.
+     // If not, add this command: vtkdata->GetPointData()->SetActiveVectors(array);
+    vtkDataArray *ary = this->sDataset->GetPointData()->GetVectors();
+    assert(ary);
+    int w,h,d;
+    this->getDimension(w,h,d);
+    if (i>=w || i<0 || j>=h || j<0 || k>=d || k<0)
+        return -1;
+    int id = i+w*(j+h*k);
+    double *dval = ary->GetTuple3(id);
+    vecData = VECTOR3(dval[0], dval[1], dval[2]);
+
+    {
+//        printf("%d %d %d = id %d -> %f %f %f\n", i,j,k, id, vecData[0], vecData[1], vecData[2]);
+    }
+
+    return 1;
 }
+ int VectorFieldVTK::phys_coord(const int i, const int j, const int k, VECTOR3 &pos) {
+    int w,h,d;
+    this->getDimension(w,h,d);
+    if (i>=w || i<0 || j>=h || j<0 || k>=d || k<0)
+        return -1;
+    double *dpos = this->sDataset->GetPoint(i+w*(j+h*k));
+    pos = VECTOR3(dpos[0], dpos[1], dpos[2]);
+    return 1;
+}
+
 // get vector
- int VectorFieldVTK::at_phys(VECTOR3 pos, float t, VECTOR3& vecData) {
+ int VectorFieldVTK::at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData) {
 	double  coords[4];
 	coords[0] = pos[0];
 	coords[1] = pos[1];
@@ -128,11 +181,6 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 
 	return 1;
 }
- int VectorFieldVTK::at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue) {
-	printf("Not implemented\n");
-	assert(false);
-	return -1;
-}
 // get cell volume
  float VectorFieldVTK::volume_of_cell(int cellId) {
 	double bounds[6];
@@ -141,9 +189,22 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	//printf("v=%f\n", v);
 	return v;
 }
- void VectorFieldVTK::NormalizeField(bool bLocal) {
-	printf("Not implemented\n");
-	assert(false);
+ void VectorFieldVTK::NormalizeField(bool bLocal)
+ {
+     // GetVectors() assumes the active vectors are set by the main program.
+     // If not, add this command: vtkdata->GetPointData()->SetActiveVectors(array);
+     vtkDataArray *ary = this->sDataset->GetPointData()->GetVectors();
+     assert(ary);
+     vtkNew<vtkMath> math ;
+     int id;
+     int n = ary->GetNumberOfTuples();
+     for (id=0; id<n; id++)
+     {
+       double vec[10]; // in case for many components
+       ary->GetTuple(id, vec);
+       math->Normalize(vec); // always normalize first 3 components
+       ary->SetTuple(id, vec);
+     }
 }
  void VectorFieldVTK::ScaleField(float scale) {
 	this->scaleFactor = scale;
@@ -154,9 +215,25 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	assert(false);
 	return false;
 }
- void VectorFieldVTK::getDimension(int& xdim, int& ydim, int& zdim) {
-	printf("Not implemented\n");
-	assert(false);
+void VectorFieldVTK::getDimension(int& xdim, int& ydim, int& zdim) {
+    vtkStructuredGrid *structured = vtkStructuredGrid::SafeDownCast(this->sDataset.GetPointer());
+    vtkImageData *image = vtkImageData::SafeDownCast(this->sDataset.GetPointer());
+    if (structured) {
+        const int *dim = structured->GetDimensions();
+        xdim = dim[0];
+        ydim = dim[1];
+        zdim = dim[2];
+    }
+    else if (image) {
+        const int *dim = image->GetDimensions();
+        xdim = dim[0];
+        ydim = dim[1];
+        zdim = dim[2];
+    } else {
+        printf("Not implmented\n");
+        assert(false);
+        xdim = ydim = zdim = 0;
+    }
 }
  CellType VectorFieldVTK::GetCellType(void) {
 	int type = sDataset->GetCellType(0);
@@ -202,21 +279,10 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	assert(false);
 }
  void VectorFieldVTK::Boundary(VECTOR3& minB, VECTOR3& maxB) {
-	vtkStructuredGrid *structuredGrid;
-
-	if ((structuredGrid = vtkStructuredGrid::SafeDownCast(sDataset)) != NULL || vtkImageData::SafeDownCast(sDataset)!=NULL) {
-		int *bounds = structuredGrid->GetExtent();
-		minB.Set(bounds[0], bounds[2], bounds[4]);
-		maxB.Set(bounds[1], bounds[3], bounds[5]);
-		//printf("Structured Extent: %d %d %d %d %d %d\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-
-	}
-	//else {
-		double *bounds = sDataset->GetBounds();
-		minB.Set(bounds[0], bounds[2], bounds[4]);
-		maxB.Set(bounds[1], bounds[3], bounds[5]);
-		//printf("Bound: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-	//	}
+	double *bounds = sDataset->GetBounds();
+	minB.Set(bounds[0], bounds[2], bounds[4]);
+	maxB.Set(bounds[1], bounds[3], bounds[5]);
+	//printf("Bound: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 }
  void VectorFieldVTK::SetBoundary(VECTOR3 minB, VECTOR3 maxB) {
 	printf("Not implemented\n");

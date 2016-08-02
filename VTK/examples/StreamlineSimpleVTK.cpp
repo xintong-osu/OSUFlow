@@ -30,6 +30,7 @@ vtkSmartPointer<vtkDataSet> getData_plot3d()
 	pl3dReader->SetQFileName(SAMPLE_DATA_DIR "/curvilinear/combq.bin");
 	pl3dReader->SetScalarFunctionNumber(100);
 	pl3dReader->SetVectorFunctionNumber(202);
+    pl3dReader->SetAutoDetectFormat(1);
 	pl3dReader->Update();
 
 	// random points
@@ -124,7 +125,7 @@ int main()
 	// choose one of the following:
 	vtkSmartPointer<vtkDataSet> data = getData_plot3d();
 	//vtkSmartPointer<vtkDataSet> data = getData_vts();
-	//vtkSmartPointer<vtkDataSet> data = getData_vti();
+	//vtkSmartPointer<vtkDataSet> data = getData_vti(); // use CVectorField
 
 
 	OSUFlow *osuflow = new OSUFlow;

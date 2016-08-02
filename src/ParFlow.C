@@ -61,6 +61,7 @@ ParFlow::ParFlow(Blocks *blocks,
   this->nb = nb;
   this->blocks = blocks;
   this->comm = MPI_COMM_WORLD; // Jimmy added for default comm.
+  this->integrationDir = FORWARD_DIR;
 
   // deleted by TP 9/12/12  
 //   this->blocking = blocking;
@@ -115,6 +116,7 @@ ParFlow::ParFlow(Lattice4D *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
+  this->integrationDir = FORWARD_DIR;
 
   // deleted TP 9/12/12  
 //   this->nbhds = NULL;
@@ -149,7 +151,7 @@ ParFlow::ParFlow(LatticeAMR *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
-  integrationDir = FORWARD_DIR;
+  this->integrationDir = FORWARD_DIR;
 
   TotSeeds = 0;
   TotSteps = 0;
@@ -1795,9 +1797,9 @@ void ParFlow::PrintPerf(double TotTime, double TotInTime, double TotOutTime,
   // alloc space and gather the stats
   all_block_stats = (int *)malloc(n_block_stats * nproc *
 					  sizeof(int));
-  assert(all_time_stats != NULL);
-  all_block_stats = (int *)malloc(n_block_stats * nproc *
-  					  sizeof(int));
+  assert(all_block_stats != NULL);
+  all_time_stats = (double *)malloc(n_time_stats * nproc *
+  					  sizeof(double));
   assert(all_time_stats != NULL);
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 

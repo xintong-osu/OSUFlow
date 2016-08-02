@@ -24,7 +24,7 @@ static int num_files = 0; // number of timestep files
 
 /////////////////////////////////////////////////////////
 
-float* ReadStaticDataRaw(char* fname, int* dimension) 
+float* ReadStaticDataRaw(const char* fname, int* dimension)
 {
  
   FILE * fIn; 
@@ -42,11 +42,27 @@ float* ReadStaticDataRaw(char* fname, int* dimension)
 }
 
 
+float* ReadStaticDataRawNoHeader(const char* fname, int* dimension)
+{
+
+  FILE * fIn;
+  int totalNum;
+  float *pData;
+
+  fIn = fopen(fname, "rb");
+  assert(fIn != NULL);
+  totalNum = dimension[0] * dimension[1] * dimension[2];
+  pData = new float[totalNum * 3];
+  fread(pData, sizeof(float), totalNum*3, fIn);
+  fclose(fIn);
+  return(pData);
+}
+
 //////////////////////////////////////////////////////////
 //
 //  Read a subset of the data file
 //
-float* ReadStaticDataRaw(char *fname, int* dimension, 
+float* ReadStaticDataRaw(const char *fname, int* dimension,
 			       float* sMin, float* sMax) 
 {
  
@@ -240,7 +256,7 @@ ReadTimeVaryingDataHeader
 }
 // ADD-BY-LEETEN 12/22/2011-END
 
-float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps, 
+float** ReadTimeVaryingDataRaw(const char *fname, int& n_timesteps,
 				     int *dimension)
 {
   FILE *fIn;
@@ -329,7 +345,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 
 //////////////////////////////////////////////////////////
 
-float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps, 
+float** ReadTimeVaryingDataRaw(const char *fname, int& n_timesteps,
 			       int *dimension, 
 			       float *minB, float *maxB, 
 			       int min_t, int max_t) {
@@ -446,7 +462,7 @@ void DatasetFiles(char **names, int num_names) {
 // min_t, max_t: time range of subdomain
 // data_mode: RAW, RAW_HEADER, NETCDF
 //
-float** ReadData(char *fname, float *dim, float *minB, 
+float** ReadData(const char *fname, float *dim, float *minB,
 		 float *maxB, int min_t, int max_t,
 		 DataMode data_mode) { 
 
@@ -466,8 +482,9 @@ float** ReadData(char *fname, float *dim, float *minB,
   int i, j, k;
 
   if (files == NULL) {
-    assert((fIn = fopen(fname, "r")) != NULL);
-    assert(fscanf(fIn, "%d", &n_timesteps) > 0);
+    fIn = fopen(fname, "r");
+    if (fIn==NULL) { perror(fname); exit(1);}
+    fscanf(fIn, "%d", &n_timesteps);
 
   // ADD-BY-LEETEN 11/19/2011-BEGIN
   strcpy(szPath, fname);
@@ -502,16 +519,16 @@ float** ReadData(char *fname, float *dim, float *minB,
     for (i = 0; i < 3; i++) {
       nc_dim_names[i] = new char[128];
       assert(nc_dim_names[i] != NULL);
-      assert(fscanf(fIn, "%s", nc_dim_names[i]) < 128);
+      fscanf(fIn, "%s", nc_dim_names[i]);
     }
     // variable names for u, v, and w come next. a fill value
     // may be specified by the name
     for (i = 0; i < 3; i++) {
       nc_var_names[i] = new char[128];
       assert(nc_var_names[i] != NULL);
-      assert(fscanf(fIn, "%s", nc_var_names[i]) < 128);
+      fscanf(fIn, "%s", nc_var_names[i]);
       nc_fill_vals[i] = NC_FILL_FLOAT;
-      assert(fscanf(fIn, "%f", &(nc_fill_vals[i])) > 0);
+      fscanf(fIn, "%f", &(nc_fill_vals[i]));
     }
   }
 #endif
@@ -568,15 +585,16 @@ float** ReadData(char *fname, float *dim, float *minB,
       // MPI_IO
       if (0) { // not ready yet
 	MPI_File fd;
-	assert(MPI_File_open(comm, filename, MPI_MODE_RDONLY,
-			     MPI_INFO_NULL, &fd) == MPI_SUCCESS);
+	MPI_File_open(comm, filename, MPI_MODE_RDONLY,
+			     MPI_INFO_NULL, &fd);
 	Mpi_ioReadDataRaw(fd, dim, minB, maxB, pData, data_mode);
 	MPI_File_close(&fd);
       }
 
       // Posix
       else {
-	assert((fVecIn = fopen(filename, "rb")) != NULL);
+	fVecIn = fopen(filename, "rb");
+	if (fVecIn==NULL) {perror(filename); exit(1);}
 	PosixReadDataRaw(fVecIn, dim, minB, maxB, pData, data_mode);
 	fclose(fVecIn);
       }	
@@ -591,14 +609,14 @@ float** ReadData(char *fname, float *dim, float *minB,
     else if (data_mode == NETCDF) {
 
       int fd;
-      assert(ncmpi_open(comm, filename, NC_NOWRITE, MPI_INFO_NULL, 
-			&fd) == NC_NOERR);
+      ncmpi_open(comm, filename, NC_NOWRITE, MPI_INFO_NULL, 
+			&fd);
 			
       int nc_dim_ids[3];
       int min_dim_id = INT_MAX;
       for (j = 0; j < 3; j++) {		
-	assert(ncmpi_inq_dimid(fd, nc_dim_names[j], 
-			       &(nc_dim_ids[j])) == NC_NOERR);
+	ncmpi_inq_dimid(fd, nc_dim_names[j], 
+			       &(nc_dim_ids[j]));
 	if (nc_dim_ids[j] < min_dim_id)
 	  min_dim_id = nc_dim_ids[j];
       }
@@ -635,12 +653,12 @@ float** ReadData(char *fname, float *dim, float *minB,
 
 	  int nc_var_id;
 	  // get the variable id
-	  assert(ncmpi_inq_varid(fd, nc_var_names[j], 
-				 &nc_var_id) == NC_NOERR);
+	  ncmpi_inq_varid(fd, nc_var_names[j], 
+				 &nc_var_id);
 					
 	  // collectively read the data
-	  assert(ncmpi_get_vara_float_all(fd, nc_var_id,
-					  start, subsize, var_buf) == NC_NOERR);
+	  ncmpi_get_vara_float_all(fd, nc_var_id,
+					  start, subsize, var_buf);
 
 	  // unpack the var buf
 	  // handle data already in z y x order (for speed)
@@ -698,7 +716,8 @@ float** ReadData(char *fname, float *dim, float *minB,
 #ifndef _MPI
 
     // POSIX IO
-    assert((fVecIn = fopen(filename, "rb")) != NULL);
+    fVecIn = fopen(filename, "rb");
+    if (fVecIn==NULL) {perror(filename); exit(1);}
     PosixReadDataRaw(fVecIn, dim, minB, maxB, pData, data_mode);
     fclose(fVecIn);
 
@@ -771,8 +790,8 @@ void Mpi_ioReadDataRaw(MPI_File f, float *dim, float *minB,
   MPI_Type_commit(&filetype);
   MPI_File_set_view(f, 0, MPI_FLOAT, filetype, (char *)"native",
 		    MPI_INFO_NULL);
-  assert(MPI_File_read_all(f, p, nflt,
-			   MPI_FLOAT, &status) == MPI_SUCCESS);
+  MPI_File_read_all(f, p, nflt,
+			   MPI_FLOAT, &status);
   assert(status.count == (int)(sizeof(float)) * nflt);
 
 #ifdef BYTE_SWAP
@@ -810,7 +829,7 @@ void PosixReadDataRaw(FILE *f, float *dim, float *minB,
   int headeroffset = 0;
   int dimi[3];
   if (dm == RAW_HEADER) {
-    assert(fread(dimi, sizeof(int), 3, f) > 0);
+    fread(dimi, sizeof(int), 3, f) ;
 #ifdef BYTE_SWAP
     for (int j = 0; j < 3; j++)
       my_swap4((char *)&(dimi[j]));
@@ -830,7 +849,7 @@ void PosixReadDataRaw(FILE *f, float *dim, float *minB,
 		3 * sizeof(float) + headeroffset;
       size = (int)(maxB[0] - minB[0] + 1) * 3;
       fseek(f, offset, SEEK_SET);
-      assert(fread(p, sizeof(float), size, f) > 0);
+      fread(p, sizeof(float), size, f);
 
 #ifdef BYTE_SWAP
       for (int j = 0; j < size; j++)

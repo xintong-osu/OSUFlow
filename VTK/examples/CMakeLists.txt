@@ -11,31 +11,34 @@ set(PARAVIEW_DATA_ROOT      "$ENV{HOME}/project/VTKData" CACHE STRING "Root to V
 
 # specify the path to the headers
 include_directories(
-	${OSUFLOWVTK_DIR}
 )
 
 link_directories (
-	${OSUFLOWVTK_DIR}
 )
 
 add_definitions (-DVTK_DATA_ROOT=${VTK_DATA_ROOT})
 
 # List all simple targets
 LIST(APPEND SIMPLE_TARGETS
-	StreamlineSimpleVTK
-	testVTS
-	vec2vti
-	vti2vec
-	StreamlineSimpleVTKUnstructured
+    StreamlineSimpleVTK
+    testVTS
+    vec2vti
+    raw2vti
+    vti2vec
+    StreamlineSimpleVTKUnstructured
+    StreamlineRenderVec
+    StreamlineRenderPlot3D
+    StreamlineRenderUnstructured
+    VortexDetectorVTK
+    VectorAnalysis
 )
+
 if( ${WITH_GRAPHICS} )
         LIST (APPEND SIMPLE_TARGETS
                 glStreamlineSimpleVTK
                 gcbStreamlineVTK
                 StreamlineSimpleVTKPipeline
-                StreamlineRenderVec
-                StreamlineRenderPlot3D
-		StreamlineRenderUnstructured
+                gcbStreamlineVTKMultiBlock
         )
 endif ()
 if ( false ) #${WITH_MPI} )
@@ -48,9 +51,16 @@ if ( false ) #${WITH_MPI} )
 endif ()
 
 
+
+IF(APPLE)
+    # The primitive VTK renderer cannot catch keyboard events
+    # without packed into the mac bundle
+    SET(EXECUTABLE_FLAG MACOSX_BUNDLE)  
+ENDIF(APPLE)
+
 # all targets
 foreach(TARGET ${SIMPLE_TARGETS} )
-	add_executable (${TARGET} ${TARGET}.cpp)
+	add_executable (${TARGET} ${EXECUTABLE_FLAG}  ${TARGET}.cpp)
 	target_link_libraries (${TARGET} ${LINK_LIBS})
 endforeach(TARGET)
 
